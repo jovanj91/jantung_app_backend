@@ -1,2 +1,12 @@
 env/
 __pycache__/
+done/
+hasil/
+frames/
+medianfiltered/
+highboost/
+morphology/
+thresholding/
+canny/
+region/
+colinear/
