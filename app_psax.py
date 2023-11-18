@@ -855,18 +855,6 @@ class Preprocessing(Resource):
 
         self.ExtractionMethod()
 
-
-
-
-
-
-
-
-
-
-
-
-
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(LoginUser, "/login", methods = ["POST"])
 api.add_resource(ProtectedLoginJWT, "/protected", methods=["GET"])
