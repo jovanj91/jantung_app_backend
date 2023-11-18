@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from functools import wraps
-import jwt, os, datetime, werkzeug
+import jwt, os, datetime, werkzeug, copy
 import numpy as np
 import cv2
 import math
@@ -137,7 +137,7 @@ class Preprocessing(Resource):
         output_dir = 'frames'
         os.makedirs(output_dir, exist_ok=True)
         cap = cv2.VideoCapture(video)
-        target_frames = 10
+        target_frames = self.jumlahFrame
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         frame_skip = max(total_frames // target_frames, 1)
@@ -580,8 +580,6 @@ class Preprocessing(Resource):
                             P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
                             goodFeatures[i][j][0] = P
 
-        sources[9] = cv2.medianBlur(sources[9], 9)
-
         for i in range(9):
             for j in range(len(goodFeatures[i])):
                 length = (math.sqrt(((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2) + ((goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)) / self.valnorm) * 100
@@ -600,14 +598,19 @@ class Preprocessing(Resource):
             print(status[i])
             print(errs[i])
 
-        output_dir = 'All GF'
-        os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in sources.items():
-            for i in range(self.jumlah*2):
-                x, y = self.goodFeatures[framecount][i][0]
-                output_path = os.path.join(output_dir, f'Frame{framecount:04d}.png')
-                cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                cv2.imwrite(output_path, image)
+
+        for i in range(len(sources)-1):
+            for j in range(self.jumlah * 2):
+                output_path = os.path.join('Tracking', f'TrackingLK.png')
+                gfx_awal = int(goodFeatures[0][j][0][0])
+                gfy_awal = int(goodFeatures[0][j][0][1])
+                gfx_akhir = int(goodFeatures[len(sources) - 1][j][0][0])
+                gfy_akhir = int(goodFeatures[len(sources) - 1][j][0][1])
+                cv2.line(sources[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
+                cv2.imwrite(output_path, sources[0])
+
+                length = math.sqrt((gfx_awal - gfx_akhir)**2 + (gfy_awal - gfy_akhir)**2)
+                self.lengthDif[i].append(length)
 
     def featureExtraction(self, goodFeatures):
         for j in range(self.jumlah):
@@ -747,7 +750,7 @@ class Preprocessing(Resource):
 
         # Draw lines and circles for visualization
         for i, image in images.items():
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            # image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             for j in range(self.jumlah * 2 - 1):
                 a = tuple(map(int, coordinate[i][j]))
                 b = tuple(map(int, coordinate[i][j + 1]))
@@ -757,7 +760,6 @@ class Preprocessing(Resource):
             for j in range(self.jumlah * 2):
                 x, y = goodFeatures[i][j][0]
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-            cv2.imshow(f'test{i}',image)
             output_path = os.path.join(output_dir, f"tracking_{i}.png")
             cv2.imwrite(output_path, image)
         cv2.waitKey(0)
@@ -781,14 +783,16 @@ class Preprocessing(Resource):
         self.directionI = np.zeros((24, 9), dtype=float)
         self.length = np.zeros((24, 9), dtype=float)
 
-        rawImages = {}
+        self.jumlahFrame = 10
+        self.frames = {}
         res ={}
         if(request.method == "POST"):
             videofile = request.files['video']
             rawVideo = werkzeug.utils.secure_filename(videofile.filename)
             print("\nReceived image File name : " + videofile.filename)
             print(videofile)
-        rawImages = self.video2frames(rawVideo)
+        self.frames = self.video2frames(rawVideo)
+        rawImages = copy.copy(self.frames)
         #Preprocessing
         res = self.median_filter(rawImages[0])
         res = self.high_boost_filter(rawImages[0], res, 1.5)
@@ -817,6 +821,8 @@ class Preprocessing(Resource):
             self.goodFeatures[i] = self.goodFeatures[i].astype(np.float32)
             # for j in range(1, self.jumlah * 2 + 1):
             for j in range(self.jumlah * 2):
+                # x = GFcoordinates[j][2][0]
+                # y = GFcoordinates[j][2][1]
                 x = GFcoordinates[j][0]
                 y = GFcoordinates[j][1]
                 self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
@@ -838,7 +844,16 @@ class Preprocessing(Resource):
 
         self.featureExtraction(self.goodFeatures)
 
-        self.track_visualization(rawImages, self.goodFeatures)
+        self.track_visualization(self.frames, self.goodFeatures)
+
+
+        output_dir = 'Output'
+        os.makedirs(output_dir, exist_ok=True)
+        for framecount, image in self.frames.items():
+            output_path = os.path.join(output_dir, f'frame_{framecount}.png')
+            cv2.imwrite(output_path, image)
+
+        self.ExtractionMethod()
 
 
 
