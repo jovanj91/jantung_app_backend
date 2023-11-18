@@ -1,4 +1,4 @@
-#include <algorithm>
+ #include <algorithm>
 #include <stdio.h>
 #include <iostream>
 #include <vector>
@@ -18,7 +18,7 @@ RNG rng(12345);
 //Common Method
 void readImages();
 void readFiles();
-void trackvizualization(); 
+void trackvizualization();
 
 //Normalisasi
 float valnorm;

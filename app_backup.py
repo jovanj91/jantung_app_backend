@@ -8,7 +8,6 @@ from functools import wraps
 import jwt, os, datetime, werkzeug
 import numpy as np
 import cv2
-import math
 
 
 from models import AuthModel
@@ -336,6 +335,7 @@ class Preprocessing(Resource):
         hasil = np.zeros(res.shape, dtype=res.dtype)
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
         minRect = [cv2.minAreaRect(contour) for contour in contours]
 
         for i in range(len(contours)):
@@ -347,7 +347,7 @@ class Preprocessing(Resource):
 
         if kondisi1 < kondisi2:
             print('kanan')
-            self.valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
+            valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
 
             # garis kanan
             garis = np.zeros(res.shape, dtype=res.dtype)
@@ -418,7 +418,7 @@ class Preprocessing(Resource):
             return coordinate2
 
         else:
-            self.valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
+            valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
             print('kiri')
 
             garis = np.zeros(res.shape, dtype=res.dtype)
@@ -498,229 +498,6 @@ class Preprocessing(Resource):
             GFresult[framecount] = self.GetGoodFeature(image)
         return GFresult
 
-    def findAngle(self, x1, y1, x2, y2):
-        angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi
-
-        if -90 <= angle < 0:
-            angle = abs(angle) + 90
-        elif 0 <= angle < 90:
-            angle = angle - 180 + 90
-            angle = abs(angle) + 360
-        elif 90 <= angle <= 180:
-            angle = -(angle - 180) + 90
-            angle += 180
-        else:
-            angle = abs(angle) + 90
-
-        return angle
-
-
-    def opticalFlowCalc(self, sources, goodFeatures):
-        thresh_diff = 20.0
-        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-        winSize = (50, 50)
-        length = [[] for _ in range(4)]
-        for i in range(9):
-            maxLevel = 3
-            sources[i] = cv2.medianBlur(sources[i], 9)
-            #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
-            goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit)
-            print(status[i])
-            print(errs[i])
-
-            for k in range(4):
-                for j in range(len(goodFeatures[i])):
-                    length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / self.valnorm * 100
-                    if length[0] > thresh_diff:
-                        if (j > 0 and j < 5) or (j > 6 and j < 11):
-                            length[1] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2) / self.valnorm * 100
-                            length[2] = np.sqrt((goodFeatures[i][j + 1][0][0] - goodFeatures[i + 1][j + 1][0][0]) ** 2 + (goodFeatures[i][j + 1][0][1] - goodFeatures[i + 1][j + 1][0][1]) ** 2) / self.valnorm * 100
-
-                            if length[1] < thresh_diff:
-                                length[3] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2)
-                                angleNorm = self.findAngle(goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1], goodFeatures[i + 1][j - 1][0][0], goodFeatures[i + 1][j - 1][0][1])
-                                s = np.sin(angleNorm * np.pi / 180)
-                                c = np.cos(angleNorm * np.pi / 180)
-                                P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
-                                goodFeatures[i + 1][j][0] = P
-
-                            elif length[2] < thresh_diff:
-                                length[3] = np.sqrt((goodFeatures[i][j + 1][0][0] - goodFeatures[i + 1][j + 1][0][0]) ** 2 + (goodFeatures[i][j + 1][0][1] - goodFeatures[i + 1][j + 1][0][1]) ** 2)
-                                angleNorm = self.findAngle(goodFeatures[i][j + 1][0][0], goodFeatures[i][j + 1][0][1], goodFeatures[i + 1][j + 1][0][0], goodFeatures[i + 1][j + 1][0][1])
-                                s = np.sin(angleNorm * np.pi / 180)
-                                c = np.cos(angleNorm * np.pi / 180)
-                                P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
-                                goodFeatures[i + 1][j][0] = P
-
-                for j in range(len(goodFeatures[i])):
-                    length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / self.valnorm * 100
-                    if length[0] > thresh_diff:
-                        if j == 0 or j == 6:
-                            length[3] = np.sqrt((goodFeatures[i][j + 1][0][0] - goodFeatures[i + 1][j + 1][0][0]) ** 2 + (goodFeatures[i][j + 1][0][1] - goodFeatures[i + 1][j + 1][0][1]) ** 2)
-                            angleNorm = self.findAngle(goodFeatures[i][j + 1][0][0], goodFeatures[i][j + 1][0][1], goodFeatures[i + 1][j + 1][0][0], goodFeatures[i + 1][j + 1][0][1])
-                            s = np.sin(angleNorm * np.pi / 180)
-                            c = np.cos(angleNorm * np.pi / 180)
-                            P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
-                            goodFeatures[i][j][0] = P
-
-                        elif j == 5 or j == 11:
-                            length[3] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2)
-                            angleNorm = self.findAngle(goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1], goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1])
-                            s = np.sin(angleNorm * np.pi / 180)
-                            c = np.cos(angleNorm * np.pi / 180)
-                            P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
-                            goodFeatures[i][j][0] = P
-
-        sources[9] = cv2.medianBlur(sources[9], 9)
-
-        for i in range(9):
-            for j in range(len(goodFeatures[i])):
-                length = (math.sqrt(((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2) + ((goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)) / self.valnorm) * 100
-                self.lengthDif[i].append(length)
-
-    def featureExtraction(self, goodFeatures):
-        for j in range(self.jumlah):
-            for i in range(9):
-                # PENCARIAN SISI KIRI(GOODFEATURE) DERAJAT KEMIRINGAN
-                a1 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j + self.jumlah][0][1]) ** 2)
-                b1 = math.sqrt((goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                c1 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                angle1 = math.acos((b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1)) * 180 / math.pi
-                quadrant1 = (b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1) * 180 / math.pi
-                if quadrant1 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j + self.jumlah][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 > slope2:
-                        # print("MASUK ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(1)
-                    else:
-                        # print("MASUK --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(2)
-                    # PEMBAGIAN EKSTRAKSI DILAKUKAN DISINI YA UNTUK BAGIAN YANG MASUK
-                else:
-                    # KELUAR
-                    self.direction[j + self.jumlah][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 < slope2:
-                        # print("KELUAR --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(3)
-                    else:
-                        # print("KELUAR ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(4)
-                    # PEMBAGIAN EKSTRAKSI DILAKUKAN DISINI YA UNTUK BAGIAN YANG MASUK
-
-                # PENCARIAN SISI KANAN (GOODFEATURE) DERAJAT KEMIRINGAN
-                a2 = math.sqrt((goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                b2 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)
-                c2 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                angle2 = math.acos((c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2)) * 180 / math.pi
-                quadrant2 = (c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2) * 180 / math.pi
-                if quadrant2 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][0][j][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 < slope2:
-                        # print("MASUK --", angle2)
-                        self.directionI[j][i] = int(1)
-                    else:
-                        # print("MASUK ++", angle2)
-                        self.directionI[j][i] = int(2)
-                else:
-                    # KELUAR
-                    self.direction[j][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 > slope2:
-                        # print("KELUAR ++", angle2)
-                        self.directionI[j][i] = int(3)
-                    else:
-                        # print("KELUAR --", angle2)
-                        self.directionI[j][i] = int(4)
-
-
-    def ExtractionMethod(self):
-        pf, nf, pm, nm = [0] * 24, [0] * 24, [0] * 24, [0] * 24
-        for j in range(self.jumlah * 2):
-            num1, num2, num3, num4 = 0, 0, 0, 0
-            for i in range(9):
-                if self.direction[j][i] == 1:
-                    num1 += 1
-                    num3 += self.lengthDif[i][j]
-                else:
-                    num2 += 1
-                    num4 += self.lengthDif[i][j]
-            pf[j] = num1 / 9
-            nf[j] = num2 / 9
-            pm[j] = num3
-            nm[j] = num4
-
-        # MENYIMPAN FEATURE EXTRACTION METHOD I
-        with open("M1F1_2AC.csv", "a") as myfile:
-            for j in range((self.jumlah * 2) - 1):
-                myfile.write(
-                    f"{pf[j]},{nf[j]},{pm[j]},{nm[j]},"
-                )
-
-                if j == (self.jumlah * 2) - 2:
-                    myfile.write(
-                        f"{pf[j + 1]},{nf[j + 1]},{pm[j + 1]},{nm[j + 1]}\n"
-                )
-
-    def trackingVisualization(images, good_features, jumlah):
-        source = np.zeros_like(images[0])
-        good_feature_img = np.zeros_like(images[0])
-
-        # Visualize Tracking
-        vect1 = [[] for _ in range(10)]
-        vect2 = [[] for _ in range(10)]
-        coordinate = np.zeros((50, 50, 2), dtype=np.float32)
-
-        # Sorting data for tracking on the left and right sides
-        for i in range(10):
-            for j in range(jumlah):
-                vect1[i].append(tuple(map(float, good_features[i][j])))
-                vect2[i].append(tuple(map(float, good_features[i][j + jumlah])))
-            vect1[i] = sorted(vect1[i], key=lambda x: x[1])
-            vect2[i] = sorted(vect2[i], key=lambda x: x[1])
-
-        # Moving sorted data to the coordinate variable
-        for i in range(10):
-            temp1 = -1
-            for j in range(jumlah - 1, -1, -1):
-                temp1 += 1
-                coordinate[i][temp1] = np.array(vect1[i][j])
-                if j == jumlah - 1:
-                    for k in range(jumlah):
-                        coordinate[i][k + jumlah] = np.array(vect2[i][k])
-
-        # Drawing lines and circles
-        for i in range(10):
-            for j in range((jumlah * 2) - 1):
-                cv2.line(images[i], tuple(map(int, coordinate[i][j])), tuple(map(int, coordinate[i][j + 1])), (0, 255, 0), 2, 8)
-            for j in range(jumlah * 2):
-                cv2.circle(images[i], tuple(map(int, good_features[i][j])), 1, (255, 255, 255), 2, 8, 0)
-            filename = f"TRACKING2AC/PIC_{i}.jpg"
-            cv2.imwrite(filename, images[i])
-
-
     def post(self):
         #variable konstan
         self.R = 25 #radius
@@ -729,15 +506,8 @@ class Preprocessing(Resource):
         self.CCX, self.CCY = [0] * 100, [0] * 100
 
         self.jumlah = 6
-        self.goodFeatures = [np.array([[]]) for _ in range(10)]
+        self.goodFeatures = [[] for _ in range(10)]
         self.GFcoordinates = {}
-        self.valnorm = 0
-
-        self.lengthDif = [[] for _ in range (9)]
-
-        self.direction = np.zeros((24, 9), dtype=float)
-        self.directionI = np.zeros((24, 9), dtype=float)
-        self.length = np.zeros((24, 9), dtype=float)
 
         rawImages = {}
         res ={}
@@ -747,7 +517,7 @@ class Preprocessing(Resource):
             print("\nReceived image File name : " + videofile.filename)
             print(videofile)
         rawImages = self.video2frames(rawVideo)
-        #Preprocessing
+        #Preprocessng
         res = self.median_filter(rawImages)
         res = self.high_boost_filter(rawImages, res, 1.5)
         res = self.morph(res)
@@ -762,56 +532,30 @@ class Preprocessing(Resource):
         res = self.coLinear(res)
 
         #Visualisasi titik tengah
-        # for framecount, image in res.items() :
-        #     cv2.circle(image, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
-        #     cv2.imshow(f'nyoba {framecount:04d}', image)
-        # cv2.waitKey(0)
+        for framecount, image in res.items() :
+            cv2.circle(image, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
+            cv2.imshow(f'nyoba {framecount:04d}', image)
+        cv2.waitKey(0)
 
 
         #Tracking
         GFcoordinates = self.AllGF(res)
         #Simpan nilai koordinat good feature
         for framecount, coordinate in GFcoordinates.items() :
-            self.goodFeatures[framecount] = self.goodFeatures[framecount].astype(np.float32)
-            if framecount == 0:
-                for i in range(1, self.jumlah * 2 + 1):
-                    x = coordinate[i][2][0]
-                    y = coordinate[i][2][1]
-                    self.goodFeatures[framecount] = np.append(self.goodFeatures[framecount], np.array([x, y], dtype=np.float32))
-                self.goodFeatures[framecount] = self.goodFeatures[framecount].reshape((12, 1, 2))
+            for i in range(1, self.jumlah * 2 + 1):
+                x = coordinate[i][2][0]
+                y = coordinate[i][2][1]
+                self.goodFeatures[framecount].append((x, y))
 
-
-
-        #Visualisasi Good Feature
-        output_dir = 'GoodFeatures'
-        os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in rawImages.items():
-            if framecount == 0:
-                for i in range(self.jumlah*2):
-                    x, y = self.goodFeatures[framecount][i][0]
-                    output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-                    cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                    cv2.imwrite(output_path, image)
-                break
-
-        self.opticalFlowCalc(rawImages, self.goodFeatures)
-
-        # self.featureExtraction(self.goodFeatures)
-
-        output_dir = 'GoodFeatures After Normalization'
-        os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in rawImages.items():
-            for i in range(self.jumlah*2):
-                x, y = self.goodFeatures[framecount][i][0]
-                output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-                cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                cv2.imwrite(output_path, image)
-
-
-
-
-
-
+        # Visualisasi Good Feature
+        # output_dir = 'GoodFeatures'
+        # os.makedirs(output_dir, exist_ok=True)
+        # for framecount, image in res.items():
+        #     for i in range(self.jumlah*2):
+        #         x, y = self.goodFeatures[framecount][i][0]
+        #         output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
+        #         cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+        #         cv2.imwrite(output_path, image)
 
 
 

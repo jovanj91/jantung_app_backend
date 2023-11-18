@@ -119,20 +119,11 @@ def straightLine(x1, y1, x2, y2):
 #     return s
 
 def GetGoodFeature(res):
-    coordinate1 = [0]*1000
-    coordinate2 = [0]*1000
-    temp1, temp2, temp3 = 0, 0, 0
+    temp1, temp2, = 0, 0
     jumlah = 0
     banyak = 12
-    rect_points = np.zeros((4, 2), dtype=np.float32)
-    color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
-    garis = np.zeros(res.shape, dtype=res.dtype)
-    hasil = np.zeros(res.shape, dtype=res.dtype)
-    goodFeatures = [[] for _ in range(100)]
-    res = np.zeros_like(source)
 
     contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
     # minRect = []
     # for contour in contours:
     #     minRect.append(cv2.minAreaRect(contour))
@@ -163,10 +154,12 @@ def GetGoodFeature(res):
     for i in range(1, banyak + 1):
         goodFeatures.append(coordinate2[i])
 
+    print(goodFeatures)
+    frame_Draw = res
     for point in goodFeatures:
-        cv2.circle(res, (point[0], point[1]), 1, (0, 255, 255), 5, 8, 0)
+        cv2.circle(frame_Draw, (point[0], point[1]), 1, (255, 255, 255), 5, 8, 0)
 
-    return res
+    return frame_Draw
 
 
 if __name__ == '__main__':

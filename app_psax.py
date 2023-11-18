@@ -161,141 +161,117 @@ class Preprocessing(Resource):
         cap.release()
         return rawImages
 
-    def median_filter(self, rawImages):
-        median_filtered_images = {}
+    def median_filter(self, image):
         output_dir = 'medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
-        for frame_count, image in rawImages.items():
-            res = np.copy(image)
-            kernelsize = 27
-            res = cv2.medianBlur(image, kernelsize)
-            median_filtered_images[frame_count] = res
-            output_path = os.path.join(output_dir, f'frame_{frame_count:04d}.png')
-            cv2.imwrite(output_path, res)
-        return median_filtered_images
+        res = np.copy(image)
+        kernelsize = 27
+        res = cv2.medianBlur(image, kernelsize)
+        output_path = os.path.join(output_dir, 'median.png')
+        cv2.imwrite(output_path, res)
+        return res
 
-    def high_boost_filter(self, source, lpf, kons):
-        hbfImages = {}
+    def high_boost_filter(self, image, lpf, kons):
         output_dir = 'highboost'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, (image, lpf) in enumerate(zip(source.items(), lpf.items())):
-            #tupple image, lpf index ke 1 menyimpan bytes image sedangkan 0 menyimpan framecount, sehingga yang diakses disnini addalah index 1
-            res = np.copy(image[1])
-            #operasi manual highboost
-            for i in range(image[1].shape[0]):
-                for j in range(image[1].shape[1]):
-                    lpf_rgb = lpf[1][i, j]
-                    # src_rgb = image[1][i, j]
+        res = np.copy(image)
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                lpf_rgb = lpf[i, j]
+                src_rgb = image[i, j]
+                for k in range(3):  # 3 channels (B, G, R)
+                    # val = kons * src_rgb[k] - lpf_rgb[k]
+                    val = kons * lpf_rgb[k]
+                    val = min(max(val, 0), 255)
+                    res[i, j, k] = val
+        res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+        output_path = os.path.join(output_dir, 'highboost.png')
+        cv2.imwrite(output_path, res)
+        return res
 
-                    for k in range(3):  # 3 channels (B, G, R)
-                        # val = kons * src_rgb[k] - lpf_rgb[k]
-                        val = kons * lpf_rgb[k]
-                        val = min(max(val, 0), 255)
-                        res[i, j, k] = val
-            res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-            hbfImages[framecount] = res
-            output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-            cv2.imwrite(output_path, res)
-        return hbfImages
 
-    def morph(self, source):
-        morphImages = {}
+    def morph(self, image):
         output_dir = 'morphology'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in source.items():
-            res = np.copy(image)
-            ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3,3))
-            res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
-            res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
-            morphImages[framecount] = res
-            output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-            cv2.imwrite(output_path, res)
-        return morphImages
+        res = np.copy(image)
+        ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3,3))
+        res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
+        res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
+        output_path = os.path.join(output_dir, 'morphology.png')
+        cv2.imwrite(output_path, res)
+        return res
 
-    def thresholding(self, source):
-        thresholded = {}
+    def thresholding(self, image):
         output_dir = 'thresholding'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in source.items():
-            res = np.copy(image)
-            _, res = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY) #original at 90
-            thresholded[framecount] = res
-            output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-            cv2.imwrite(output_path, res)
-        return thresholded
+        res = np.copy(image)
+        _, res = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY) #original at 90
+        output_path = os.path.join(output_dir, 'threshold.png')
+        cv2.imwrite(output_path, res)
+        return res
 
-    def canny(self, source):
-        cannyFiltered = {}
+    def canny(self, image):
         output_dir = 'canny'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in source.items():
-            res = image.copy()
-            res = cv2.Canny(image, 0, 255, 3)
-            cannyFiltered[framecount] = res
-            output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-            cv2.imwrite(output_path, res)
-        return cannyFiltered
+        res = image.copy()
+        res = cv2.Canny(image, 0, 255, 3)
+        output_path = os.path.join(output_dir, 'canny.png')
+        cv2.imwrite(output_path, res)
+        return res
 
-    def region_filter(self, source):
-        regionFiltered = {}
+    def region_filter(self, image):
         output_dir = 'region'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in source.items():
-            contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            res = np.zeros_like(image)
-            output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-            for i in range(len(contours)):
-                if len(contours[i]) > self.R:
-                    # cv2.drawContours(res, contours, i, (255, 0, 0), 1)
-                    cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                    regionFiltered[framecount] = res
-                    cv2.imwrite(output_path, res)
-        return regionFiltered
+        contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        res = np.zeros_like(image)
+        output_path = os.path.join(output_dir, 'region.png')
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R:
+                # cv2.drawContours(res, contours, i, (255, 0, 0), 1)
+                cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
+                cv2.imwrite(output_path, res)
+        return res
 
 
-    def coLinear(self, source):
-        colinearFiltered = {}
+    def coLinear(self, image):
         output_dir = 'colinear'
         os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in source.items():
-           # Find contours in the input image
-            contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            res = np.zeros_like(image)
-            data = [0] * 100
+        contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        res = np.zeros_like(image)
+        data = [0] * 100
 
-            idk = 0
-            for i, contour in enumerate(contours):
-                if len(contour) > self.R * 2:
-                    pt = contour[len(contour) // 4][0]
-                    self.CCX[idk] = pt[0]
-                    self.CCY[idk] = pt[1]
-                    data[idk] = 0
-                else:
-                    self.CCX[idk] = 0
-                    self.CCY[idk] = 0
-                    data[idk] = 1
+        idk = 0
+        for i, contour in enumerate(contours):
+            if len(contour) > self.R * 2:
+                pt = contour[len(contour) // 4][0]
+                self.CCX[idk] = pt[0]
+                self.CCY[idk] = pt[1]
+                data[idk] = 0
+            else:
+                self.CCX[idk] = 0
+                self.CCY[idk] = 0
+                data[idk] = 1
                 idk += 1
-            # Intersection line evaluation
-            for i in range(len(contours)):
-                for j in range(len(contours)):
-                    if i == j: continue
-                    out = 0
-                    for k in range(len(contours[i]) // 2):
-                        pt1 = contours[i][k][0]
-                        pt2 = contours[i][k + 2][0]
-                        out = self.intersectionLine(self.X1, self.Y1, self.CCX[j], self.CCY[j], pt1[0], pt1[1], pt2[0], pt2[1])
-                        if out == 1:
-                            if (abs(self.CCX[j] - pt1[0]) < 2) and (abs(self.CCY[j] - pt1[1]) < 2):
-                                data[j] = 0
-                            else:
-                                data[j] = 1
-            for i in range(len(contours)):
-                if data[i] == 0:
-                    cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                    colinearFiltered[framecount] = res
-                    output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-                    cv2.imwrite(output_path, res)
-        return colinearFiltered
+        # Intersection line evaluation
+        for i in range(len(contours)):
+            for j in range(len(contours)):
+                if i == j: continue
+                out = 0
+                for k in range(len(contours[i]) // 2):
+                    pt1 = contours[i][k][0]
+                    pt2 = contours[i][k + 2][0]
+                    out = self.intersectionLine(self.X1, self.Y1, self.CCX[j], self.CCY[j], pt1[0], pt1[1], pt2[0], pt2[1])
+                    if out == 1:
+                        if (abs(self.CCX[j] - pt1[0]) < 2) and (abs(self.CCY[j] - pt1[1]) < 2):
+                            data[j] = 0
+                        else:
+                            data[j] = 1
+        for i in range(len(contours)):
+            if data[i] == 0:
+                cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
+                output_path = os.path.join(output_dir, 'colinear.png')
+                cv2.imwrite(output_path, res)
+        return res
 
     def intersectionLine(self, x1, y1, x2, y2, x3, y3, x4, y4):
         m1, c1 = self.straightLine(x1, y1, x2, y2)
@@ -326,7 +302,45 @@ class Preprocessing(Resource):
         b = y1 - m * x1
         return m, b
 
-    def GetGoodFeature(self, res):
+    def GetGoodFeaturesPSAX(self, res):
+        temp1, temp2, = 0, 0
+        count = 0
+        banyak = self.jumlah * 2
+
+        contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # minRect = []
+        # for contour in contours:
+        #     minRect.append(cv2.minAreaRect(contour))
+
+
+        coordinate1 = []  # Create an empty list for storing coordinates
+
+        for i in range(len(contours)):
+            for j in range(len(contours[i]) // 2):
+                count += 1
+                coordinate1.append(contours[i][j][0])
+
+        temp1 = 0
+        batasan = count
+        data1 = count / (banyak + 1)
+
+        coordinate2 = [None] * (banyak + 1)  # Initialize a list for coordinate2
+
+        for i in np.arange(data1, batasan, data1):
+            temp1 += 1
+            temp2 = int(round(i))
+            coordinate2[temp1] = coordinate1[temp2]
+
+            if temp1 == banyak:
+                break
+
+        goodFeatures = []  # Create a list for storing good features
+        for i in range(1, banyak + 1):
+            goodFeatures.append(coordinate2[i])
+
+        return goodFeatures
+
+    def GetGoodFeaturesIntersection(self, res):
         coordinate1 = [[(0, 0) for _ in range(10)] for _ in range(500)]
         coordinate2 = [[(0, 0) for _ in range(10)] for _ in range(500)]
         temp1, temp2, temp3 = 0, 0, 0
@@ -336,6 +350,7 @@ class Preprocessing(Resource):
         hasil = np.zeros(res.shape, dtype=res.dtype)
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
         minRect = [cv2.minAreaRect(contour) for contour in contours]
 
         for i in range(len(contours)):
@@ -492,12 +507,6 @@ class Preprocessing(Resource):
                             break
             return coordinate2
 
-    def AllGF(self, source):
-        GFresult = {}
-        for framecount, image in source.items():
-            GFresult[framecount] = self.GetGoodFeature(image)
-        return GFresult
-
     def findAngle(self, x1, y1, x2, y2):
         angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi
 
@@ -515,7 +524,7 @@ class Preprocessing(Resource):
         return angle
 
 
-    def opticalFlowCalc(self, sources, goodFeatures):
+    def opticalFlowCalcwithNormalization(self, sources, goodFeatures):
         thresh_diff = 20.0
         termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
         winSize = (50, 50)
@@ -578,6 +587,28 @@ class Preprocessing(Resource):
                 length = (math.sqrt(((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2) + ((goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)) / self.valnorm) * 100
                 self.lengthDif[i].append(length)
 
+    def opticalFlowCalc(self, sources, goodFeatures):
+        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
+        winSize = (50, 50)
+        for i in range(len(sources)):
+            sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
+        for i in range(len(sources) - 1):
+            maxLevel = 3
+            sources[i] = cv2.medianBlur(sources[i], 9)
+            #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
+            goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit)
+            print(status[i])
+            print(errs[i])
+
+        output_dir = 'All GF'
+        os.makedirs(output_dir, exist_ok=True)
+        for framecount, image in sources.items():
+            for i in range(self.jumlah*2):
+                x, y = self.goodFeatures[framecount][i][0]
+                output_path = os.path.join(output_dir, f'Frame{framecount:04d}.png')
+                cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+                cv2.imwrite(output_path, image)
+
     def featureExtraction(self, goodFeatures):
         for j in range(self.jumlah):
             for i in range(9):
@@ -598,10 +629,10 @@ class Preprocessing(Resource):
                     slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
                             goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
                     if slope1 > slope2:
-                        # print("MASUK ++", angle1)
+                        print("MASUK ++", angle1)
                         self.directionI[j + self.jumlah][i] = int(1)
                     else:
-                        # print("MASUK --", angle1)
+                        print("MASUK --", angle1)
                         self.directionI[j + self.jumlah][i] = int(2)
                     # PEMBAGIAN EKSTRAKSI DILAKUKAN DISINI YA UNTUK BAGIAN YANG MASUK
                 else:
@@ -612,10 +643,10 @@ class Preprocessing(Resource):
                     slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
                             goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
                     if slope1 < slope2:
-                        # print("KELUAR --", angle1)
+                        print("KELUAR --", angle1)
                         self.directionI[j + self.jumlah][i] = int(3)
                     else:
-                        # print("KELUAR ++", angle1)
+                        print("KELUAR ++", angle1)
                         self.directionI[j + self.jumlah][i] = int(4)
                     # PEMBAGIAN EKSTRAKSI DILAKUKAN DISINI YA UNTUK BAGIAN YANG MASUK
 
@@ -632,14 +663,14 @@ class Preprocessing(Resource):
                     # MASUK
                     self.direction[j][i] = int(1)
                     slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][0][j][0] - goodFeatures[i][j][0][0])
+                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
                     slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
                             goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
                     if slope1 < slope2:
-                        # print("MASUK --", angle2)
+                        print("MASUK --", angle2)
                         self.directionI[j][i] = int(1)
                     else:
-                        # print("MASUK ++", angle2)
+                        print("MASUK ++", angle2)
                         self.directionI[j][i] = int(2)
                 else:
                     # KELUAR
@@ -649,10 +680,10 @@ class Preprocessing(Resource):
                     slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
                             goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
                     if slope1 > slope2:
-                        # print("KELUAR ++", angle2)
+                        print("KELUAR ++", angle2)
                         self.directionI[j][i] = int(3)
                     else:
-                        # print("KELUAR --", angle2)
+                        print("KELUAR --", angle2)
                         self.directionI[j][i] = int(4)
 
 
@@ -684,41 +715,52 @@ class Preprocessing(Resource):
                         f"{pf[j + 1]},{nf[j + 1]},{pm[j + 1]},{nm[j + 1]}\n"
                 )
 
-    def trackingVisualization(images, good_features, jumlah):
-        source = np.zeros_like(images[0])
-        good_feature_img = np.zeros_like(images[0])
+    def sort_by_second(self, elem):
+        return elem[1]
+
+    def track_visualization(self, images, goodFeatures):
+        output_dir = 'Tracking'
+        os.makedirs(output_dir, exist_ok=True)
 
         # Visualize Tracking
         vect1 = [[] for _ in range(10)]
         vect2 = [[] for _ in range(10)]
         coordinate = np.zeros((50, 50, 2), dtype=np.float32)
 
-        # Sorting data for tracking on the left and right sides
-        for i in range(10):
-            for j in range(jumlah):
-                vect1[i].append(tuple(map(float, good_features[i][j])))
-                vect2[i].append(tuple(map(float, good_features[i][j + jumlah])))
-            vect1[i] = sorted(vect1[i], key=lambda x: x[1])
-            vect2[i] = sorted(vect2[i], key=lambda x: x[1])
+        # Sorting data for the left and right sides
+        for i in range(len(images)):
+            for j in range(self.jumlah):
+                vect1[i].append(tuple(goodFeatures[i][j][0]))
+                vect2[i].append(tuple(goodFeatures[i][j + self.jumlah][0]))
+            vect1[i] = sorted(vect1[i], key=self.sort_by_second)
+            vect2[i] = sorted(vect2[i], key=self.sort_by_second)
 
-        # Moving sorted data to the coordinate variable
-        for i in range(10):
+        # Transfer sorted data to the coordinate variable
+        for i in range(len(images)):
             temp1 = -1
-            for j in range(jumlah - 1, -1, -1):
+            for j in range(self.jumlah - 1, -1, -1):
                 temp1 += 1
                 coordinate[i][temp1] = np.array(vect1[i][j])
-                if j == jumlah - 1:
-                    for k in range(jumlah):
-                        coordinate[i][k + jumlah] = np.array(vect2[i][k])
+                if j == self.jumlah - 1:
+                    for k in range(self.jumlah):
+                        coordinate[i][k + self.jumlah] = np.array(vect2[i][k])
 
-        # Drawing lines and circles
-        for i in range(10):
-            for j in range((jumlah * 2) - 1):
-                cv2.line(images[i], tuple(map(int, coordinate[i][j])), tuple(map(int, coordinate[i][j + 1])), (0, 255, 0), 2, 8)
-            for j in range(jumlah * 2):
-                cv2.circle(images[i], tuple(map(int, good_features[i][j])), 1, (255, 255, 255), 2, 8, 0)
-            filename = f"TRACKING2AC/PIC_{i}.jpg"
-            cv2.imwrite(filename, images[i])
+        # Draw lines and circles for visualization
+        for i, image in images.items():
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            for j in range(self.jumlah * 2 - 1):
+                a = tuple(map(int, coordinate[i][j]))
+                b = tuple(map(int, coordinate[i][j + 1]))
+                # cv2.line(image, tuple(map(int, coordinate[i][j])), tuple(map(int, coordinate[i][j + 1])), (255, 255, 255), 2)
+                cv2.line(image, a, b, (0, 255, 0), 1)
+
+            for j in range(self.jumlah * 2):
+                x, y = goodFeatures[i][j][0]
+                cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+            cv2.imshow(f'test{i}',image)
+            output_path = os.path.join(output_dir, f"tracking_{i}.png")
+            cv2.imwrite(output_path, image)
+        cv2.waitKey(0)
 
 
     def post(self):
@@ -748,15 +790,15 @@ class Preprocessing(Resource):
             print(videofile)
         rawImages = self.video2frames(rawVideo)
         #Preprocessing
-        res = self.median_filter(rawImages)
-        res = self.high_boost_filter(rawImages, res, 1.5)
+        res = self.median_filter(rawImages[0])
+        res = self.high_boost_filter(rawImages[0], res, 1.5)
         res = self.morph(res)
         res = self.thresholding(res)
         #Segmentation
         res = self.canny(res)
         res = self.region_filter(res)
         #ambil 1 frame untuk menympan nilai center point
-        height, width = res[0].shape
+        height, width = res.shape
         self.X1, self.Y1 = (width // 2), (height // 2)
         self.X2, self.Y2 = (self.X1 + 22), (self.Y1+ 23)
         res = self.coLinear(res)
@@ -769,18 +811,16 @@ class Preprocessing(Resource):
 
 
         #Tracking
-        GFcoordinates = self.AllGF(res)
+        GFcoordinates = self.GetGoodFeaturesPSAX(res)
         #Simpan nilai koordinat good feature
-        for framecount, coordinate in GFcoordinates.items() :
-            self.goodFeatures[framecount] = self.goodFeatures[framecount].astype(np.float32)
-            if framecount == 0:
-                for i in range(1, self.jumlah * 2 + 1):
-                    x = coordinate[i][2][0]
-                    y = coordinate[i][2][1]
-                    self.goodFeatures[framecount] = np.append(self.goodFeatures[framecount], np.array([x, y], dtype=np.float32))
-                self.goodFeatures[framecount] = self.goodFeatures[framecount].reshape((12, 1, 2))
-
-
+        for i in range(len(rawImages)) :
+            self.goodFeatures[i] = self.goodFeatures[i].astype(np.float32)
+            # for j in range(1, self.jumlah * 2 + 1):
+            for j in range(self.jumlah * 2):
+                x = GFcoordinates[j][0]
+                y = GFcoordinates[j][1]
+                self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
+            self.goodFeatures[i] = self.goodFeatures[i].reshape((12, 1, 2))
 
         #Visualisasi Good Feature
         output_dir = 'GoodFeatures'
@@ -789,23 +829,20 @@ class Preprocessing(Resource):
             if framecount == 0:
                 for i in range(self.jumlah*2):
                     x, y = self.goodFeatures[framecount][i][0]
-                    output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
+                    output_path = os.path.join(output_dir, 'GF.png')
                     cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
                     cv2.imwrite(output_path, image)
                 break
 
         self.opticalFlowCalc(rawImages, self.goodFeatures)
 
-        # self.featureExtraction(self.goodFeatures)
+        self.featureExtraction(self.goodFeatures)
 
-        output_dir = 'GoodFeatures After Normalization'
-        os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in rawImages.items():
-            for i in range(self.jumlah*2):
-                x, y = self.goodFeatures[framecount][i][0]
-                output_path = os.path.join(output_dir, f'frame_{framecount:04d}.png')
-                cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                cv2.imwrite(output_path, image)
+        self.track_visualization(rawImages, self.goodFeatures)
+
+
+
+
 
 
 
