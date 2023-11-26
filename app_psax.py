@@ -121,7 +121,7 @@ class UploadVideo(Resource):
     # @token_requried
     def upload_video():
         if(request.method == "POST"):
-            videofile = request.files['image']
+            videofile = request.files['video']
             filename = werkzeug.utils.secure_filename(videofile.filename)
             print("\nReceived image File name : " + videofile.filename)
             videofile.save("./uploadedvideo/" + filename)
@@ -165,7 +165,7 @@ class Preprocessing(Resource):
         output_dir = 'medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        kernelsize = 27
+        kernelsize = 21
         res = cv2.medianBlur(image, kernelsize)
         output_path = os.path.join(output_dir, 'median.png')
         cv2.imwrite(output_path, res)
@@ -205,7 +205,7 @@ class Preprocessing(Resource):
         output_dir = 'thresholding'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        _, res = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY) #original at 90
+        _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
         output_path = os.path.join(output_dir, 'threshold.png')
         cv2.imwrite(output_path, res)
         return res
@@ -241,9 +241,9 @@ class Preprocessing(Resource):
         data = [0] * 100
 
         idk = 0
-        for i, contour in enumerate(contours):
-            if len(contour) > self.R * 2:
-                pt = contour[len(contour) // 4][0]
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R * 2:
+                pt = contours[i][len(contours[i]) // 4][0]
                 self.CCX[idk] = pt[0]
                 self.CCY[idk] = pt[1]
                 data[idk] = 0
@@ -251,7 +251,7 @@ class Preprocessing(Resource):
                 self.CCX[idk] = 0
                 self.CCY[idk] = 0
                 data[idk] = 1
-                idk += 1
+            idk += 1
         # Intersection line evaluation
         for i in range(len(contours)):
             for j in range(len(contours)):
@@ -324,7 +324,7 @@ class Preprocessing(Resource):
         batasan = count
         data1 = count / (banyak + 1)
 
-        coordinate2 = [None] * (banyak + 1)  # Initialize a list for coordinate2
+        coordinate2 = [None] * (banyak + 1)
 
         for i in np.arange(data1, batasan, data1):
             temp1 += 1
@@ -691,7 +691,7 @@ class Preprocessing(Resource):
 
 
     def ExtractionMethod(self):
-        pf, nf, pm, nm = [0] * 24, [0] * 24, [0] * 24, [0] * 24
+        pf, nf, pm, nm = [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)]
         for j in range(self.jumlah * 2):
             num1, num2, num3, num4 = 0, 0, 0, 0
             for i in range(9):
@@ -709,14 +709,9 @@ class Preprocessing(Resource):
         # MENYIMPAN FEATURE EXTRACTION METHOD I
         with open("M1F1_2AC.csv", "a") as myfile:
             for j in range((self.jumlah * 2) - 1):
-                myfile.write(
-                    f"{pf[j]},{nf[j]},{pm[j]},{nm[j]},"
-                )
-
+                myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
                 if j == (self.jumlah * 2) - 2:
-                    myfile.write(
-                        f"{pf[j + 1]},{nf[j + 1]},{pm[j + 1]},{nm[j + 1]}\n"
-                )
+                    myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])},{str(pm[j + 1])},{str(nm[j + 1])}\n")
 
     def sort_by_second(self, elem):
         return elem[1]
@@ -762,14 +757,39 @@ class Preprocessing(Resource):
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
             output_path = os.path.join(output_dir, f"tracking_{i}.png")
             cv2.imwrite(output_path, image)
-        cv2.waitKey(0)
 
+    def triangleEquation(self, source):
+
+        contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        jum1 = 0
+        jum2 = 0
+        noCon = []
+
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R:
+                pt = (self.X1, self.Y1)
+                #check titik tengah berada di dalam kontur ROI atau tidak
+                out = cv2.pointPolygonTest(contours[i], pt, False)
+                if out > 0:
+                    jum1 += 1
+                else:
+                    noCon.append(i)
+                    jum2 += 1
+
+        if jum1 > 0:
+            print("bentuk=1")
+            res = np.zeros_like(source)
+            for i in range(len(contours)):
+                if len(contours[i]) > self.R:
+                    cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8,)
+
+            return res
 
     def post(self):
         #variable konstan
-        self.R = 25 #radius
+        self.R = 30 #radius
         self.X1, self.Y1 = 0, 0 #centerpoint
-        self.X2, self.Y2 = 0, 0
         self.CCX, self.CCY = [0] * 100, [0] * 100
 
         self.jumlah = 6
@@ -779,9 +799,8 @@ class Preprocessing(Resource):
 
         self.lengthDif = [[] for _ in range (9)]
 
-        self.direction = np.zeros((24, 9), dtype=float)
-        self.directionI = np.zeros((24, 9), dtype=float)
-        self.length = np.zeros((24, 9), dtype=float)
+        self.direction = np.zeros((12, 9), dtype=float)
+        self.directionI = np.zeros((12, 9), dtype=float)
 
         self.jumlahFrame = 10
         self.frames = {}
@@ -804,15 +823,18 @@ class Preprocessing(Resource):
         #ambil 1 frame untuk menympan nilai center point
         height, width = res.shape
         self.X1, self.Y1 = (width // 2), (height // 2)
-        self.X2, self.Y2 = (self.X1 + 22), (self.Y1+ 23)
+
+         # Visualisasi titik tengah
+
         res = self.coLinear(res)
 
-        #Visualisasi titik tengah
-        # for framecount, image in res.items() :
-        #     cv2.circle(image, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
-        #     cv2.imshow(f'nyoba {framecount:04d}', image)
+        # cv2.circle(res, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
+        # cv2.imshow(f'nyoba', res)
         # cv2.waitKey(0)
 
+        res = self.triangleEquation(res)
+        cv2.imshow("Triangle Equation", res)
+        cv2.waitKey(0)
 
         #Tracking
         GFcoordinates = self.GetGoodFeaturesPSAX(res)
@@ -820,13 +842,17 @@ class Preprocessing(Resource):
         for i in range(len(rawImages)) :
             self.goodFeatures[i] = self.goodFeatures[i].astype(np.float32)
             # for j in range(1, self.jumlah * 2 + 1):
-            for j in range(self.jumlah * 2):
-                # x = GFcoordinates[j][2][0]
-                # y = GFcoordinates[j][2][1]
-                x = GFcoordinates[j][0]
-                y = GFcoordinates[j][1]
-                self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
-            self.goodFeatures[i] = self.goodFeatures[i].reshape((12, 1, 2))
+            if i == 0:
+                for j in range(self.jumlah * 2):
+
+                    # x = GFcoordinates[j][2][0]
+                    # y = GFcoordinates[j][2][1]
+
+                    #PSAX
+                    x = GFcoordinates[j][0]
+                    y = GFcoordinates[j][1]
+                    self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
+                self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
         #Visualisasi Good Feature
         output_dir = 'GoodFeatures'
@@ -842,10 +868,9 @@ class Preprocessing(Resource):
 
         self.opticalFlowCalc(rawImages, self.goodFeatures)
 
+        #Feature Extraction
         self.featureExtraction(self.goodFeatures)
-
         self.track_visualization(self.frames, self.goodFeatures)
-
 
         output_dir = 'Output'
         os.makedirs(output_dir, exist_ok=True)

@@ -346,7 +346,6 @@ Mat coLinear(Mat source) {
 			CCY[idk] = pt.y;
 			data[idk] = 0;
 		}
-		else {
 			CCX[idk] = 0;
 			CCY[idk] = 0;
 			data[idk] = 1;
