@@ -242,7 +242,7 @@ class Preprocessing(Resource):
 
         idk = 0
         for i in range(len(contours)):
-            if len(contours[i]) > self.R * 2:
+            if len(contours[i]) > self.R:
                 pt = contours[i][len(contours[i]) // 4][0]
                 self.CCX[idk] = pt[0]
                 self.CCY[idk] = pt[1]
@@ -761,11 +761,17 @@ class Preprocessing(Resource):
     def triangleEquation(self, source):
 
         contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+        data1 = [[] for _ in range(200)]
+        x1 = [[0] * 100 for _ in range(100)]
+        y1 = [[0] * 100 for _ in range(100)]
+        x2 = [[0] * 100 for _ in range(100)]
+        y2 = [[0] * 100 for _ in range(100)]
+        center = [0, 0]
+        jum = 0
         jum1 = 0
         jum2 = 0
         noCon = []
-
+        idk = 0
         for i in range(len(contours)):
             if len(contours[i]) > self.R:
                 pt = (self.X1, self.Y1)
@@ -776,19 +782,131 @@ class Preprocessing(Resource):
                 else:
                     noCon.append(i)
                     jum2 += 1
-
+            idk += 1
         if jum1 > 0:
             print("bentuk=1")
             res = np.zeros_like(source)
-            for i in range(len(contours)):
-                if len(contours[i]) > self.R:
-                    cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8,)
-
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
             return res
 
+        if jum2 == 1:
+            print("bentuk=2")
+            j = 0
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    k = 0
+                    for i in range (len(contours[m]) - 7):
+                        p1 = contours[m][i][0]
+                        p2 = contours[m][i + 1][0]
+                        p3 = contours[m][i + 2][0]
+                        p4 = contours[m][i + 3][0]
+                        p5 = contours[m][i + 4][0]
+                        p6 = contours[m][i + 5][0]
+                        p7 = contours[m][i + 6][0]
+                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
+                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
+                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
+                        if d <= 15 :
+                            data1[k] = i + 3
+                            k += 1
+                            self.CCX[j] = p4[0]
+                            self.CCY[j] = p4[1]
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 0, 0), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 0, 0), thickness=1)
+
+                    k = 0
+                    for i in range (len(contours[m]) - 7):
+                        p1 = contours[m][i][0]
+                        p2 = contours[m][i + 1][0]
+                        p3 = contours[m][i + 2][0]
+                        p4 = contours[m][i + 3][0]
+                        p5 = contours[m][i + 4][0]
+                        p6 = contours[m][i + 5][0]
+                        p7 = contours[m][i + 6][0]
+                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
+                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
+                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
+                        if d <= 3 :
+                            data1[k] = i + 3
+                            k += 1
+                            self.CCX[j] = p4[0]
+                            self.CCY[j] = p4[1]
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=1)
+
+                    center[0] = self.X1
+                    center[1] = self.Y1
+                    jum = 0
+                    min = 2000.0
+                    p1 = contours[m][data1[0]][0]
+                    for i in range(data1[1], data1[1] + self.R):
+                        p = contours[m][i][0]
+                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
+                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
+                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
+                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        print(alpha)
+                        if (alpha < min):
+                            min = alpha
+                            jum = i
+
+                    jum1 = 0
+                    min = 2000.0
+                    p1 = contours[m][jum][0]
+                    for i in range(data1[0], data1[0] + self.R):
+                        p = contours[m][i][0]
+                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
+                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
+                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
+                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        print(alpha)
+                        if (alpha < min):
+                            min = alpha
+                            jum1 = i
+
+                    p1 = contours[m][jum][0]
+                    p2 = contours[m][jum1][0]
+                    x1[0][0] = p1[0]
+                    y1[0][0] = p1[1]
+                    x2[0][0] = p2[0]
+                    y2[0][0] = p2[1]
+                    cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=1)
+
+                    cv2.imshow("hasil", source)
+                    cv2.waitKey(0)
+
+                j += 1
+
+            contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            res = np.zeros_like(source)
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+
+            cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
+
+
+            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # for m in range(len(contours)):
+            #     if len(contours[m]) > self.R:
+            #         pt = (self.X1, self.Y1)
+            #         out = cv2.pointPolygonTest(contours[m], pt, False)
+            #         if out > 0:
+            #             break
+            # for m in range(len(contours)):
+            #     cv2.drawContours(res, contours, m (255, 0, 0), 1, lineType=8,)
+            return res
+        if jum2 == 2:
+            print("bentuk=3")
+        if jum2 == 3:
+            print("bentuk=4")
+        if jum2 == 4 or jum2 == 5:
+            print("bentuk=5")
     def post(self):
         #variable konstan
-        self.R = 30 #radius
+        self.R = 65 #radius
         self.X1, self.Y1 = 0, 0 #centerpoint
         self.CCX, self.CCY = [0] * 100, [0] * 100
 
@@ -833,8 +951,8 @@ class Preprocessing(Resource):
         # cv2.waitKey(0)
 
         res = self.triangleEquation(res)
-        cv2.imshow("Triangle Equation", res)
-        cv2.waitKey(0)
+        # cv2.imshow("Triangle Equation", res)
+        # cv2.waitKey(0)
 
         #Tracking
         GFcoordinates = self.GetGoodFeaturesPSAX(res)
