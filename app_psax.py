@@ -134,7 +134,7 @@ class UploadVideo(Resource):
 class Preprocessing(Resource):
     def video2frames(self, video):
         rawImages = {}
-        output_dir = 'frames'
+        output_dir = '1.frames'
         os.makedirs(output_dir, exist_ok=True)
         cap = cv2.VideoCapture(video)
         target_frames = self.jumlahFrame
@@ -162,7 +162,7 @@ class Preprocessing(Resource):
         return rawImages
 
     def median_filter(self, image):
-        output_dir = 'medianfiltered'
+        output_dir = '2.medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         kernelsize = 21
@@ -172,7 +172,7 @@ class Preprocessing(Resource):
         return res
 
     def high_boost_filter(self, image, lpf, kons):
-        output_dir = 'highboost'
+        output_dir = '3.highboost'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         for i in range(image.shape[0]):
@@ -191,7 +191,7 @@ class Preprocessing(Resource):
 
 
     def morph(self, image):
-        output_dir = 'morphology'
+        output_dir = '4.morphology'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3,3))
@@ -202,7 +202,7 @@ class Preprocessing(Resource):
         return res
 
     def thresholding(self, image):
-        output_dir = 'thresholding'
+        output_dir = '5.thresholding'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
@@ -211,7 +211,7 @@ class Preprocessing(Resource):
         return res
 
     def canny(self, image):
-        output_dir = 'canny'
+        output_dir = '6.canny'
         os.makedirs(output_dir, exist_ok=True)
         res = image.copy()
         res = cv2.Canny(image, 0, 255, 3)
@@ -220,7 +220,7 @@ class Preprocessing(Resource):
         return res
 
     def region_filter(self, image):
-        output_dir = 'region'
+        output_dir = '7.region'
         os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
@@ -234,7 +234,7 @@ class Preprocessing(Resource):
 
 
     def coLinear(self, image):
-        output_dir = 'colinear'
+        output_dir = '8.colinear'
         os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
@@ -717,7 +717,7 @@ class Preprocessing(Resource):
         return elem[1]
 
     def track_visualization(self, images, goodFeatures):
-        output_dir = 'Tracking'
+        output_dir = '10.Tracking'
         os.makedirs(output_dir, exist_ok=True)
 
         # Visualize Tracking
@@ -874,9 +874,6 @@ class Preprocessing(Resource):
                     y2[0][0] = p2[1]
                     cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=1)
 
-                    cv2.imshow("hasil", source)
-                    cv2.waitKey(0)
-
                 j += 1
 
             contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -973,7 +970,7 @@ class Preprocessing(Resource):
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
         #Visualisasi Good Feature
-        output_dir = 'GoodFeatures'
+        output_dir = '9.GoodFeatures'
         os.makedirs(output_dir, exist_ok=True)
         for framecount, image in rawImages.items():
             if framecount == 0:
@@ -990,7 +987,7 @@ class Preprocessing(Resource):
         self.featureExtraction(self.goodFeatures)
         self.track_visualization(self.frames, self.goodFeatures)
 
-        output_dir = 'Output'
+        output_dir = '11.Output'
         os.makedirs(output_dir, exist_ok=True)
         for framecount, image in self.frames.items():
             output_path = os.path.join(output_dir, f'frame_{framecount}.png')
