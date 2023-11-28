@@ -9,6 +9,7 @@ import jwt, os, datetime, werkzeug, copy
 import numpy as np
 import cv2
 import math
+import glob
 
 
 from models import AuthModel
@@ -165,7 +166,7 @@ class Preprocessing(Resource):
         output_dir = '2.medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        kernelsize = 21
+        kernelsize = 21 #5 edge more complete
         res = cv2.medianBlur(image, kernelsize)
         output_path = os.path.join(output_dir, 'median.png')
         cv2.imwrite(output_path, res)
@@ -180,7 +181,7 @@ class Preprocessing(Resource):
                 lpf_rgb = lpf[i, j]
                 src_rgb = image[i, j]
                 for k in range(3):  # 3 channels (B, G, R)
-                    # val = kons * src_rgb[k] - lpf_rgb[k]
+                    #val = kons * src_rgb[k] - lpf_rgb[k]
                     val = kons * lpf_rgb[k]
                     val = min(max(val, 0), 255)
                     res[i, j, k] = val
@@ -194,7 +195,8 @@ class Preprocessing(Resource):
         output_dir = '4.morphology'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3,3))
+        ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3, 3))
+        # ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3), (1, 1))
         res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
         res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
         output_path = os.path.join(output_dir, 'morphology.png')
@@ -272,6 +274,149 @@ class Preprocessing(Resource):
                 output_path = os.path.join(output_dir, 'colinear.png')
                 cv2.imwrite(output_path, res)
         return res
+    def triangleEquation(self, source):
+
+        contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        data1 = [[] for _ in range(200)]
+        x1 = [[0] * 100 for _ in range(100)]
+        y1 = [[0] * 100 for _ in range(100)]
+        x2 = [[0] * 100 for _ in range(100)]
+        y2 = [[0] * 100 for _ in range(100)]
+        center = [0, 0]
+        jum = 0
+        jum1 = 0
+        jum2 = 0
+        noCon = []
+        idk = 0
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R:
+                pt = (self.X1, self.Y1)
+                #check titik tengah berada di dalam kontur ROI atau tidak
+                out = cv2.pointPolygonTest(contours[i], pt, False)
+                if out > 0:
+                    jum1 += 1
+                else:
+                    noCon.append(i)
+                    jum2 += 1
+            idk += 1
+        if jum1 > 0:
+            print("bentuk=1")
+            res = np.zeros_like(source)
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+            return res
+
+        if jum2 == 1:
+            print("bentuk=2")
+            j = 0
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    k = 0
+                    for i in range (len(contours[m]) - 7):
+                        p1 = contours[m][i][0]
+                        p2 = contours[m][i + 1][0]
+                        p3 = contours[m][i + 2][0]
+                        p4 = contours[m][i + 3][0]
+                        p5 = contours[m][i + 4][0]
+                        p6 = contours[m][i + 5][0]
+                        p7 = contours[m][i + 6][0]
+                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
+                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
+                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
+                        if d <= 15 :
+                            data1[k] = i + 3
+                            k += 1
+                            self.CCX[j] = p4[0]
+                            self.CCY[j] = p4[1]
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 0, 0), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 0, 0), thickness=1)
+
+                    k = 0
+                    for i in range (len(contours[m]) - 7):
+                        p1 = contours[m][i][0]
+                        p2 = contours[m][i + 1][0]
+                        p3 = contours[m][i + 2][0]
+                        p4 = contours[m][i + 3][0]
+                        p5 = contours[m][i + 4][0]
+                        p6 = contours[m][i + 5][0]
+                        p7 = contours[m][i + 6][0]
+                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
+                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
+                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
+                        if d <= 3 :
+                            data1[k] = i + 3
+                            k += 1
+                            self.CCX[j] = p4[0]
+                            self.CCY[j] = p4[1]
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=1)
+
+                    center[0] = self.X1
+                    center[1] = self.Y1
+                    jum = 0
+                    min = 2000.0
+                    p1 = contours[m][data1[0]][0]
+                    for i in range(data1[1], data1[1] + self.R):
+                        p = contours[m][i][0]
+                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
+                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
+                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
+                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        print(alpha)
+                        if (alpha < min):
+                            min = alpha
+                            jum = i
+
+                    jum1 = 0
+                    min = 2000.0
+                    p1 = contours[m][jum][0]
+                    for i in range(data1[0], data1[0] + self.R):
+                        p = contours[m][i][0]
+                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
+                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
+                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
+                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        print(alpha)
+                        if (alpha < min):
+                            min = alpha
+                            jum1 = i
+
+                    p1 = contours[m][jum][0]
+                    p2 = contours[m][jum1][0]
+                    x1[0][0] = p1[0]
+                    y1[0][0] = p1[1]
+                    x2[0][0] = p2[0]
+                    y2[0][0] = p2[1]
+                    cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=1)
+
+                j += 1
+
+            contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            res = np.zeros_like(source)
+            for m in range(len(contours)):
+                if len(contours[m]) > self.R:
+                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+
+            cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
+
+
+            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # for m in range(len(contours)):
+            #     if len(contours[m]) > self.R:
+            #         pt = (self.X1, self.Y1)
+            #         out = cv2.pointPolygonTest(contours[m], pt, False)
+            #         if out > 0:
+            #             break
+            # for m in range(len(contours)):
+            #     cv2.drawContours(res, contours, m (255, 0, 0), 1, lineType=8,)
+            return res
+        if jum2 == 2:
+            print("bentuk=3")
+        if jum2 == 3:
+            print("bentuk=4")
+        if jum2 == 4 or jum2 == 5:
+            print("bentuk=5")
 
     def intersectionLine(self, x1, y1, x2, y2, x3, y3, x4, y4):
         m1, c1 = self.straightLine(x1, y1, x2, y2)
@@ -586,6 +731,7 @@ class Preprocessing(Resource):
                 self.lengthDif[i].append(length)
 
     def opticalFlowCalc(self, sources, goodFeatures):
+
         termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
         winSize = (50, 50)
         for i in range(len(sources)):
@@ -601,7 +747,7 @@ class Preprocessing(Resource):
 
         for i in range(len(sources)-1):
             for j in range(self.jumlah * 2):
-                output_path = os.path.join('Tracking', f'TrackingLK.png')
+                output_path = os.path.join('10.Tracking', f'TrackingLK.png')
                 gfx_awal = int(goodFeatures[0][j][0][0])
                 gfy_awal = int(goodFeatures[0][j][0][1])
                 gfx_akhir = int(goodFeatures[len(sources) - 1][j][0][0])
@@ -719,7 +865,7 @@ class Preprocessing(Resource):
     def track_visualization(self, images, goodFeatures):
         output_dir = '10.Tracking'
         os.makedirs(output_dir, exist_ok=True)
-
+        trackingresult = {}
         # Visualize Tracking
         vect1 = [[] for _ in range(10)]
         vect2 = [[] for _ in range(10)]
@@ -755,152 +901,25 @@ class Preprocessing(Resource):
             for j in range(self.jumlah * 2):
                 x, y = goodFeatures[i][j][0]
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+                trackingresult[i] = image
             output_path = os.path.join(output_dir, f"tracking_{i}.png")
             cv2.imwrite(output_path, image)
 
-    def triangleEquation(self, source):
-
-        contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        data1 = [[] for _ in range(200)]
-        x1 = [[0] * 100 for _ in range(100)]
-        y1 = [[0] * 100 for _ in range(100)]
-        x2 = [[0] * 100 for _ in range(100)]
-        y2 = [[0] * 100 for _ in range(100)]
-        center = [0, 0]
-        jum = 0
-        jum1 = 0
-        jum2 = 0
-        noCon = []
-        idk = 0
-        for i in range(len(contours)):
-            if len(contours[i]) > self.R:
-                pt = (self.X1, self.Y1)
-                #check titik tengah berada di dalam kontur ROI atau tidak
-                out = cv2.pointPolygonTest(contours[i], pt, False)
-                if out > 0:
-                    jum1 += 1
-                else:
-                    noCon.append(i)
-                    jum2 += 1
-            idk += 1
-        if jum1 > 0:
-            print("bentuk=1")
-            res = np.zeros_like(source)
-            for m in range(len(contours)):
-                if len(contours[m]) > self.R:
-                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-            return res
-
-        if jum2 == 1:
-            print("bentuk=2")
-            j = 0
-            for m in range(len(contours)):
-                if len(contours[m]) > self.R:
-                    k = 0
-                    for i in range (len(contours[m]) - 7):
-                        p1 = contours[m][i][0]
-                        p2 = contours[m][i + 1][0]
-                        p3 = contours[m][i + 2][0]
-                        p4 = contours[m][i + 3][0]
-                        p5 = contours[m][i + 4][0]
-                        p6 = contours[m][i + 5][0]
-                        p7 = contours[m][i + 6][0]
-                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
-                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
-                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
-                        if d <= 15 :
-                            data1[k] = i + 3
-                            k += 1
-                            self.CCX[j] = p4[0]
-                            self.CCY[j] = p4[1]
-                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 0, 0), thickness=1)
-                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 0, 0), thickness=1)
-
-                    k = 0
-                    for i in range (len(contours[m]) - 7):
-                        p1 = contours[m][i][0]
-                        p2 = contours[m][i + 1][0]
-                        p3 = contours[m][i + 2][0]
-                        p4 = contours[m][i + 3][0]
-                        p5 = contours[m][i + 4][0]
-                        p6 = contours[m][i + 5][0]
-                        p7 = contours[m][i + 6][0]
-                        d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
-                            int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
-                            int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
-                        if d <= 3 :
-                            data1[k] = i + 3
-                            k += 1
-                            self.CCX[j] = p4[0]
-                            self.CCY[j] = p4[1]
-                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=1)
-                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=1)
-
-                    center[0] = self.X1
-                    center[1] = self.Y1
-                    jum = 0
-                    min = 2000.0
-                    p1 = contours[m][data1[0]][0]
-                    for i in range(data1[1], data1[1] + self.R):
-                        p = contours[m][i][0]
-                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
-                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
-                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
-                        print(alpha)
-                        if (alpha < min):
-                            min = alpha
-                            jum = i
-
-                    jum1 = 0
-                    min = 2000.0
-                    p1 = contours[m][jum][0]
-                    for i in range(data1[0], data1[0] + self.R):
-                        p = contours[m][i][0]
-                        a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
-                        b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
-                        c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
-                        print(alpha)
-                        if (alpha < min):
-                            min = alpha
-                            jum1 = i
-
-                    p1 = contours[m][jum][0]
-                    p2 = contours[m][jum1][0]
-                    x1[0][0] = p1[0]
-                    y1[0][0] = p1[1]
-                    x2[0][0] = p2[0]
-                    y2[0][0] = p2[1]
-                    cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=1)
-
-                j += 1
-
-            contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            res = np.zeros_like(source)
-            for m in range(len(contours)):
-                if len(contours[m]) > self.R:
-                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-
-            cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
+        return trackingresult
 
 
-            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # for m in range(len(contours)):
-            #     if len(contours[m]) > self.R:
-            #         pt = (self.X1, self.Y1)
-            #         out = cv2.pointPolygonTest(contours[m], pt, False)
-            #         if out > 0:
-            #             break
-            # for m in range(len(contours)):
-            #     cv2.drawContours(res, contours, m (255, 0, 0), 1, lineType=8,)
-            return res
-        if jum2 == 2:
-            print("bentuk=3")
-        if jum2 == 3:
-            print("bentuk=4")
-        if jum2 == 4 or jum2 == 5:
-            print("bentuk=5")
+    def frames2video(self, images):
+        img_array = []
+        for i, img in images.items():
+            height, width, layers = img.shape
+            size = (width,height)
+            img_array.append(img)
+        out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+
+        for i in range(len(img_array)):
+            out.write(img_array[i])
+        out.release()
+
     def post(self):
         #variable konstan
         self.R = 65 #radius
@@ -985,13 +1004,16 @@ class Preprocessing(Resource):
 
         #Feature Extraction
         self.featureExtraction(self.goodFeatures)
-        self.track_visualization(self.frames, self.goodFeatures)
+
+        res = self.track_visualization(self.frames, self.goodFeatures)
 
         output_dir = '11.Output'
         os.makedirs(output_dir, exist_ok=True)
         for framecount, image in self.frames.items():
             output_path = os.path.join(output_dir, f'frame_{framecount}.png')
             cv2.imwrite(output_path, image)
+
+        self.frames2video(res)
 
         self.ExtractionMethod()
 
