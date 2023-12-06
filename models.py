@@ -26,3 +26,4 @@ class AuthModel(Base):
 
     def __repr__(self):
         return f"<User(id={self.user_id}, username='{self.user_name}', email='{self.user_email}')>"
+

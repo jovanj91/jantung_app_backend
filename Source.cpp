@@ -350,7 +350,6 @@ Mat coLinear(Mat source) {
 			CCY[idk] = 0;
 			data[idk] = 1;
 		}
-
 		idk++;
 	}
 
