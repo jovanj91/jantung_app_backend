@@ -1,122 +1,55 @@
 from flask import Flask , request, make_response, jsonify, send_file
 from flask_restful import Resource, Api
 from flask_cors import CORS
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from flask_security import Security, current_user, login_required, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required
+from flask_security.utils import verify_password, hash_password, login_user
 
 from functools import wraps
+from database import db_session, init_db
+from models import User, Role, RolesUsers, StuntCheck, ChildrenData
 import jwt, os, datetime, werkzeug, copy
 import numpy as np
 import cv2
 import math
 
-
-
-from models import AuthModel
-
 app = Flask(__name__)
 api = Api(app)
 
-#koneksi ke database
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/db_cekjantung'
-#db = SQLAlchemy(app)
-secret_key = os.urandom(24)
-app.config['SECRET_KEY'] = secret_key
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", 'pf9Wkove4IKEAXvy-cQkeDPhv9Cb3Ag-wyJILbq_dFw')
+app.config['SECURITY_PASSWORD_SALT'] = os.environ.get("SECURITY_PASSWORD_SALT", '146585145368132386173505678016728509634')
+app.config['SECURITY_LOGIN_URL'] = '/login'
+app.config["SECURITY_EMAIL_VALIDATOR_ARGS"] = {"check_deliverability": False}
+app.config["WTF_CSRF_ENABLED"] = False
+app.teardown_appcontext(lambda exc: db_session.close())
 
-engine = create_engine("mysql+pymysql://root:root@localhost/db_cekjantung")
 
-Session = sessionmaker(bind=engine)
-session = Session()
+user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
+security = Security(app, user_datastore)
+
 
 class HelloWorld(Resource):
+    @login_required
     def get(self):
-        return "<p>Hello, World!</p>"
+        return f"<p>Hello, World! {current_user.username}</p>"
 
 class RegisterUser(Resource):
     def post(self):
-        usernameInput = request.json['user_name']
-        useremailInput = request.json['user_email']
-        passwordInput = request.json['user_password'].encode('utf-8')
+        usernameInput = request.json['username']
+        useremailInput = request.json['email']
+        passwordInput = request.json['password'].encode('utf-8')
 
-        if usernameInput and passwordInput:
-            user = session.query(AuthModel).filter_by(user_name=usernameInput).first()
-            if not user:
-                newUser = AuthModel(username=usernameInput, email=useremailInput)
-                newUser.set_password(passwordInput)
-                session.add(newUser)
-                session.commit()
-                try:
-                    session.close()
-                    return make_response(jsonify(message="Registration successful"), 201)
-                except Exception as e:
-                    session.rollback()
-                    return make_response(jsonify(error="Registration failed", details=str(e)), )
-            else:
-                return make_response(jsonify(error="Username Telah Digunakan" ), 409  )
-
-def token_requried(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token :
-            return make_response(jsonify({'message': 'Token is missing'}), 401)
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        except jwt.ExpiredSignatureError:
-            return make_response(jsonify({'message': 'Token isexpired'}), 401)
-        except jwt.InvalidTokenError:
-            return make_response(jsonify({'message': 'Invalid Token'}), 401)
-        return f(data, *args, **kwargs)
-    return decorated
-
-class LoginUser(Resource):
-    def post(self):
-        useremailInput = request.json['user_email']
-        passwordInput = request.json['user_password'].encode('utf-8')
-
-        user = session.query(AuthModel).filter_by(user_email=useremailInput).first()
-        if user and user.check_password(passwordInput):
-            #generate JWT token
-            token = jwt.encode({
-                'username' : user.user_name,
-                'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
-            }, app.config['SECRET_KEY'], algorithm ='HS256')
-
-            return make_response(jsonify({
-                'username' : user.user_name,
-                'message' :"Login Success",
-                'token' : token
-            }), 201)
-        else :
-            return make_response(jsonify(message="Login Failed"), 401)
-
-class ProtectedLoginJWT(Resource):
-    @token_requried
-    def protected(self, data):
-        return jsonify({'message': 'This is a protected endpoint', 'user': data['username']})
-
-# class GetFileList(Resource):
-#     # @token_requried
-#     def get_file_list():
-#         file_directory = './uploadedvideo/'
-#         file_list = []
-
-#         for filename in os.listdir(file_directory):
-#             file_path = os.path.join(file_directory, filename)
-#             file_info = {
-#                 'filename': filename,
-#                 'size': os.path.getsize(file_path),
-#                 'type': filename.split('.')[-1]  # Get the file type/extension
-#             }
-#             file_list.append(file_info)
-
-#         return jsonify(file_list)
-
-# class GetFileName(Resource):
-#     # @token_requried
-#     def get_file(filename):
-#         file_path = './uploadedvideo/'
-#         return send_file(os.path.join(file_path, filename))
+        user = security.datastore.find_user(email= useremailInput)
+        if not user:
+            security.datastore.create_user(email=useremailInput, password=hash_password(passwordInput), username=usernameInput, roles=["user"])
+            db_session.commit()
+            try:
+                db_session.close()
+                return make_response(jsonify(message="Registration successful"), 201)
+            except Exception as e:
+                db_session.rollback()
+                return make_response(jsonify(error="Registration failed", details=str(e)), )
+        else:
+            return make_response(jsonify(error="Email already registered" ), 409  )
 
 class UploadVideo(Resource):
     # @token_requried
@@ -196,8 +129,8 @@ class Preprocessing(Resource):
         output_dir = '4.morphology'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3, 3))
-        # ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3), (1, 1))
+        # ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3, 3))
+        ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3), (1, 1))
         res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
         res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
         output_path = os.path.join(output_dir, 'morphology.png')
@@ -265,7 +198,7 @@ class Preprocessing(Resource):
                     pt2 = contours[i][k + 2][0]
                     out = self.intersectionLine(self.X1, self.Y1, self.CCX[j], self.CCY[j], pt1[0], pt1[1], pt2[0], pt2[1])
                     if out == 1:
-                        if (abs(self.CCX[j] - pt1[0]) < 2) and (abs(self.CCY[j] - pt1[1]) < 2):
+                        if (abs(self.CCX[j] - pt1[0]) < 6) and (abs(self.CCY[j] - pt1[1]) < 6):
                             data[j] = 0
                         else:
                             data[j] = 1
@@ -274,6 +207,11 @@ class Preprocessing(Resource):
                 cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
                 output_path = os.path.join(output_dir, 'colinear.png')
                 cv2.imwrite(output_path, res)
+
+        contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        roi_contours = max(contours, key=cv2.contourArea)
+        res = np.zeros_like(image)
+        cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), thickness=cv2.FILLED)
         return res
 
 
@@ -317,7 +255,7 @@ class Preprocessing(Resource):
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     k = 0
-                    for i in range (len(contours[m]) - 6):
+                    for i in range (len(contours[m]) - 7):
                         p1 = contours[m][i][0]
                         p2 = contours[m][i + 1][0]
                         p3 = contours[m][i + 2][0]
@@ -328,7 +266,8 @@ class Preprocessing(Resource):
                         d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
                             int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
                             int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
-                        if d <= 15 :
+                        # print(f'd{i} =' + str(d))
+                        if d <= 15:
                             data1[k] = i + 3
                             k += 1
                             self.CCX[j] = p4[0]
@@ -338,7 +277,7 @@ class Preprocessing(Resource):
 
                     print(k)
                     k = 0
-                    for i in range (len(contours[m]) - 6):
+                    for i in range (len(contours[m]) - 7):
                         p1 = contours[m][i][0]
                         p2 = contours[m][i + 1][0]
                         p3 = contours[m][i + 2][0]
@@ -359,6 +298,7 @@ class Preprocessing(Resource):
 
                     center[0] = self.X1
                     center[1] = self.Y1
+                    print(center)
                     jum = 0
                     min = 2000.0
                     p1 = contours[m][data1[0]][0]
@@ -422,6 +362,7 @@ class Preprocessing(Resource):
             for m in range(len(contours)):
                 cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
 
+            contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             return res
         if jum2 == 2:
             print("bentuk=3")
@@ -463,9 +404,21 @@ class Preprocessing(Resource):
         temp1, temp2, = 0, 0
         count = 0
         banyak = self.jumlah * 2
+        garis = np.zeros(res.shape, dtype=res.dtype)
+        hasil = np.zeros(res.shape, dtype=res.dtype)
+        color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        minRect = [cv2.minAreaRect(contour) for contour in contours]
 
+        for i in range(len(contours)):
+            cv2.drawContours(garis, contours, i, color)
+            rect_points = cv2.boxPoints(minRect[i])
+
+        # kondisi1 = rect_points[3][0] - rect_points[0][0]
+        # kondisi2 = rect_points[0][1] - rect_points[3][1]
+
+        self.valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
         coordinate1 = []  # Create an empty list for storing coordinates
 
         for i in range(len(contours)):
@@ -682,6 +635,8 @@ class Preprocessing(Resource):
         termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
         winSize = (50, 50)
         length = [[] for _ in range(4)]
+        for i in range(len(sources)):
+            sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
         for i in range(9):
             maxLevel = 3
             sources[i] = cv2.medianBlur(sources[i], 9)
@@ -717,7 +672,7 @@ class Preprocessing(Resource):
                 for j in range(len(goodFeatures[i])):
                     length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / self.valnorm * 100
                     if length[0] > thresh_diff:
-                        if j == 0 or j == 6:
+                        if j == 0 or j == self.jumlah:
                             length[3] = np.sqrt((goodFeatures[i][j + 1][0][0] - goodFeatures[i + 1][j + 1][0][0]) ** 2 + (goodFeatures[i][j + 1][0][1] - goodFeatures[i + 1][j + 1][0][1]) ** 2)
                             angleNorm = self.findAngle(goodFeatures[i][j + 1][0][0], goodFeatures[i][j + 1][0][1], goodFeatures[i + 1][j + 1][0][0], goodFeatures[i + 1][j + 1][0][1])
                             s = np.sin(angleNorm * np.pi / 180)
@@ -725,7 +680,7 @@ class Preprocessing(Resource):
                             P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
                             goodFeatures[i][j][0] = P
 
-                        elif j == 5 or j == 11:
+                        elif j == (self.jumlah + 1) or j == (self.jumlah * 2):
                             length[3] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2)
                             angleNorm = self.findAngle(goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1], goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1])
                             s = np.sin(angleNorm * np.pi / 180)
@@ -1024,8 +979,8 @@ class Preprocessing(Resource):
                     cv2.imwrite(output_path, image)
                 break
 
-        self.opticalFlowCalc(rawImages, self.goodFeatures)
-        # self.opticalFlowCalcwithNormalization(rawImages, self.goodFeatures)
+        # self.opticalFlowCalc(rawImages, self.goodFeatures)
+        self.opticalFlowCalcwithNormalization(rawImages, self.goodFeatures)
 
         #Visualisasi tracking
         visualFrames1 = copy.deepcopy(self.frames)
@@ -1043,10 +998,6 @@ class Preprocessing(Resource):
         self.frames2video(res)
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
-api.add_resource(LoginUser, "/login", methods = ["POST"])
-api.add_resource(ProtectedLoginJWT, "/protected", methods=["GET"])
-#api.add_resource(GetFileName, "/get_file/<filename>", methods=["GET"])
-#api.add_resource(GetFileList, "/get_file_list", methods=["GET"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/preprocessing", methods=["POST"])
 api.add_resource(HelloWorld, "/")

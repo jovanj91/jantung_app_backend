@@ -74,11 +74,7 @@ int temp1, temp2, temp3, jumlah = 12;
 Point2f coordinate1[500][10];
 Point2f coordinate2[500][10];
 
-bool sortbysec(const pair<float, float> &a,
-	const pair<float, float> &b)
-{
-	return (a.second < b.second);
-}
+ 
 
 int slope(float x1, float y1, float x2, float y2)
 {

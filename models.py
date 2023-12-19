@@ -1,29 +1,38 @@
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
-# from passlib.hash import bcrypt_sha256
-import bcrypt
-Base = declarative_base()
+from database import Base
+from flask_security import UserMixin, RoleMixin, AsaList
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy import Boolean, DateTime, Column, Integer, \
+                    String, ForeignKey, Double, func
 
-class AuthModel(Base):
-    __tablename__ = "tb_users"
-    user_id = Column(Integer, primary_key = True)
-    user_name = Column(String(255))
-    user_email = Column(String(255))
-    user_password = Column(String(255)) #hashed
+class RolesUsers(Base):
+    __tablename__ = 'roles_users'
+    id = Column(Integer(), primary_key=True)
+    user_id = Column('user_id', Integer(), ForeignKey('user.id'))
+    role_id = Column('role_id', Integer(), ForeignKey('role.id'))
 
+class Role(Base, RoleMixin):
+    __tablename__ = 'role'
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(80), unique=True)
+    description = Column(String(255))
+    permissions = Column(MutableList.as_mutable(AsaList()), nullable=True)
 
-    def __init__(self, username, email):
-        self.user_name = username
-        self.user_email = email
-
-    def set_password(self, password):
-        hashedpassword = bcrypt.hashpw(password, bcrypt.gensalt())
-        self.user_password = hashedpassword.decode('utf-8')
-
-    def check_password(self, password):
-        return bcrypt.checkpw(password, self.user_password.encode('utf-8'))
-
+class User(Base, UserMixin):
+    __tablename__ = 'user'
+    id = Column(Integer(), primary_key=True)
+    email = Column(String(255), unique=True)
+    username = Column(String(255), unique=True, nullable=True)
+    password = Column(String(255), nullable=False)
+    last_login_at = Column(DateTime())
+    current_login_at = Column(DateTime())
+    last_login_ip = Column(String(100))
+    current_login_ip = Column(String(100))
+    login_count = Column(Integer)
+    active = Column(Boolean())
+    fs_uniquifier = Column(String(64), unique=True, nullable=False)
+    confirmed_at = Column(DateTime())
+    roles = relationship('Role', secondary='roles_users', backref=backref('users', lazy='dynamic'))
+    child_data = relationship('ChildrenData', backref='user', lazy='dynamic')
     def __repr__(self):
-        return f"<User(id={self.user_id}, username='{self.user_name}', email='{self.user_email}')>"
-
+        return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
