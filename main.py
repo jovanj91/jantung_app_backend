@@ -6,7 +6,7 @@ from flask_security.utils import verify_password, hash_password, login_user
 
 from functools import wraps
 from database import db_session, init_db
-from models import User, Role, RolesUsers, StuntCheck, ChildrenData
+from models import User, Role, RolesUsers
 import jwt, os, datetime, werkzeug, copy
 import numpy as np
 import cv2
@@ -22,10 +22,8 @@ app.config["SECURITY_EMAIL_VALIDATOR_ARGS"] = {"check_deliverability": False}
 app.config["WTF_CSRF_ENABLED"] = False
 app.teardown_appcontext(lambda exc: db_session.close())
 
-
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
-
 
 class HelloWorld(Resource):
     @login_required
@@ -64,7 +62,7 @@ class UploadVideo(Resource):
             })
 
 
-#Preprocessing and Segmentation
+#Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
 class Preprocessing(Resource):
     def video2frames(self, video):
         rawImages = {}
@@ -76,11 +74,6 @@ class Preprocessing(Resource):
 
         frame_skip = max(total_frames // target_frames, 1)
         print('frameskip : ' + str(frame_skip))
-
-        # if total_frames <= target_frames:
-        #     frame_skip = 1
-        # else:
-        #     frame_skip = total_frames // target_frames
         frame_count = 0
         frame_index = 0
         while frame_index < target_frames:
@@ -1002,8 +995,10 @@ api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/preprocessing", methods=["POST"])
 api.add_resource(HelloWorld, "/")
 
+with app.app_context():
+    init_db()
+
 if __name__ == '__main__':
     # run() method of Flask class runs the application
     # on the local development server.
-    # app.run(port='9000', debug=True)
-    app.run('0.0.0.0')
+    app.run(host="127.0.0.1", port=8080, debug=True)
