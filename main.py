@@ -990,7 +990,7 @@ class Preprocessing(Resource):
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])
-api.add_resource(Preprocessing, "/preprocessing", methods=["POST"])
+api.add_resource(Preprocessing, "/detectEchocardiography", methods=["POST"])
 api.add_resource(HelloWorld, "/")
 
 with app.app_context():
