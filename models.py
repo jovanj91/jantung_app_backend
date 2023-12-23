@@ -3,7 +3,7 @@ from flask_security import UserMixin, RoleMixin, AsaList
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy import Boolean, DateTime, Column, Integer, \
-                    String, ForeignKey, Double, func
+                    String, ForeignKey, Double, Date, func
 
 class RolesUsers(Base):
     __tablename__ = 'roles_users'
@@ -33,6 +33,25 @@ class User(Base, UserMixin):
     fs_uniquifier = Column(String(64), unique=True, nullable=False)
     confirmed_at = Column(DateTime())
     roles = relationship('Role', secondary='roles_users', backref=backref('users', lazy='dynamic'))
-    child_data = relationship('ChildrenData', backref='user', lazy='dynamic')
+    patient_data = relationship('PatientData', backref='user', lazy='dynamic')
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
+
+class PatientData(Base):
+    __tablename__ = 'patientData'
+    id = Column(Integer(), primary_key=True)
+    user_id = Column('user_id', Integer(), ForeignKey('user.id'))
+    first_name = Column(String(24))
+    last_name = Column(String(24))
+    dob = Column(Date())
+    gender = Column(Integer())
+    video_path = Column(String(24))
+
+
+class HeartCheck(Base):
+    __tablename__ = 'heartCheck'
+    id = Column(Integer(), primary_key=True)
+    patient_id = Column('patient_id', Integer(), ForeignKey('patientData.id'))
+    age = Column(Integer())
+    checkResult = Column(String(24))
+    checked_at = Column(DateTime())
