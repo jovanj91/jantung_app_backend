@@ -981,8 +981,6 @@ class Preprocessing(Resource):
         visualFrames2 = copy.deepcopy(self.frames)
         self.track_visualization2(visualFrames2, self.goodFeatures)
 
-
-
         #Feature Extraction
         self.featureExtraction(self.goodFeatures)
 
