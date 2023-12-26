@@ -997,7 +997,7 @@ class Preprocessing(Resource):
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename +'_echocardiographu')
+        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename +'_echocardiography')
         blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
