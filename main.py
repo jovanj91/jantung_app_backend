@@ -965,6 +965,7 @@ class Preprocessing(Resource):
         for i in range(len(img_array)):
             out.write(img_array[i])
         out.release()
+        return out
 
     def post(self):
         patient_id = request.form['patient_id']
@@ -997,7 +998,7 @@ class Preprocessing(Resource):
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename +'_echocardiography')
+        blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename)
         blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
@@ -1072,7 +1073,10 @@ class Preprocessing(Resource):
 
         self.ExtractionMethod()
 
-        self.frames2video(res)
+        res = self.frames2video(res)
+
+        blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
+        blob.upload_from_string(res)
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])
