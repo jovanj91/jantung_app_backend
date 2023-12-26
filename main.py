@@ -1005,9 +1005,9 @@ class Preprocessing(Resource):
         blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
-        print('frames'+len(self.frames))
+        print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
-        print('rawImages:' + len(rawImages))
+        print('rawImages:' + str(len(rawImages)))
         #Preprocessing
         res = self.median_filter(rawImages[0])
         res = self.high_boost_filter(rawImages[0], res, 2.5)
