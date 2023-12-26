@@ -967,7 +967,7 @@ class Preprocessing(Resource):
         out.release()
 
     def post(self):
-        patient_id = request.json['patient_id']
+        patient_id = request.form['patient_id']
         videofile = request.files['video']
         rawVideo = werkzeug.utils.secure_filename(videofile.filename)
         print("\nReceived image File name : " + videofile.filename)
