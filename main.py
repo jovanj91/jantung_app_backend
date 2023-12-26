@@ -960,7 +960,7 @@ class Preprocessing(Resource):
             height, width, layers = img.shape
             size = (width,height)
             img_array.append(img)
-        out = cv2.VideoWriter(f'',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+        out = cv2.VideoWriter(f'{self.checked_at}_result',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
 
         for i in range(len(img_array)):
             out.write(img_array[i])
@@ -969,7 +969,7 @@ class Preprocessing(Resource):
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        checked_at = request.form['checked_at']
+        self.checked_at = request.form['checked_at']
         rawVideo = werkzeug.utils.secure_filename(videofile.filename)
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
@@ -997,7 +997,7 @@ class Preprocessing(Resource):
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename)
+        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename +'_echocardiographu')
         blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
