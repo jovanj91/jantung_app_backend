@@ -41,11 +41,10 @@ class PatientData(Base):
     __tablename__ = 'patientData'
     id = Column(Integer(), primary_key=True)
     user_id = Column('user_id', Integer(), ForeignKey('user.id'))
-    first_name = Column(String(24))
-    last_name = Column(String(24))
+    patient_name = Column(String(128))
     dob = Column(Date())
     gender = Column(Integer())
-    video_path = Column(String(24))
+
 
 
 class HeartCheck(Base):
@@ -54,4 +53,5 @@ class HeartCheck(Base):
     patient_id = Column('patient_id', Integer(), ForeignKey('patientData.id'))
     age = Column(Integer())
     checkResult = Column(String(24))
+    video_path = Column(String(255))
     checked_at = Column(DateTime())

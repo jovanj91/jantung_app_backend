@@ -3,10 +3,11 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask_security import Security, current_user, login_required, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required
 from flask_security.utils import verify_password, hash_password, login_user
+from google.cloud import storage
 
 from functools import wraps
 from database import db_session, init_db
-from models import User, Role, RolesUsers
+from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
 import numpy as np
 import cv2
@@ -22,6 +23,7 @@ app.config["SECURITY_EMAIL_VALIDATOR_ARGS"] = {"check_deliverability": False}
 app.config["WTF_CSRF_ENABLED"] = False
 app.teardown_appcontext(lambda exc: db_session.close())
 
+bucket_name = "jantungappbackend.appspot.com"
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
 
@@ -60,6 +62,76 @@ class UploadVideo(Resource):
             return jsonify({
                 "message" : "file uploaded successfully"
             })
+
+class InputPatientData(Resource):
+    @login_required
+    @roles_required('user')
+    def post(self):
+        nameInput = request.json['name']
+        genderInput = request.json['gender']
+        dobInput = request.json['dob']
+        uname = db_session.query(User).filter_by(username=current_user.username).first()
+
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        user_directory = f'{current_user.username}_data'
+        # blobs = bucket.list_blobs(prefix=user_directory + '/')
+        # if blobs:
+        patient_directory = f'{nameInput}_data'
+        blob = bucket.blob(user_directory+ patient_directory + '/')
+        blob.upload_from_string('')
+
+        inputData = PatientData(patient_name =nameInput, child_dob=dobInput, gender=genderInput, user=uname)
+
+        db_session.add(inputData)
+        db_session.commit()
+        try:
+            db_session.close()
+            return make_response(jsonify(message="Data added successfully"), 201)
+        except Exception as e:
+            db_session.rollback()
+            return make_response(jsonify(error="Data failed to be added", details=str(e)), 409)
+
+class GetPatientData(Resource):
+    @login_required
+    @roles_required('user')
+    def get(self):
+        patients = db_session.query(PatientData).filter(PatientData.user_id == current_user.id)
+        patientList = []
+        for patient in patients:
+            heartCheck = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient.id).order_by(HeartCheck.checked_at.desc()).first()
+            if heartCheck != None :
+                lastCheck = heartCheck.checkResult
+            else :
+                lastCheck = "Not Checked Yet"
+            patientList.append({
+                'patient_id' : patient.id,
+                'patient_name' : patient.patient_name,
+                'gender' : patient.gender,
+                'dob' : patient.dob,
+                'lastCheck' : lastCheck
+            })
+        return make_response(jsonify({
+            'data' : patientList
+        }), 201)
+
+
+class GetPatientCheckHistory(Resource):
+    @login_required
+    @roles_required('user')
+    def post(self):
+        patient_id = request.json['patient_id']
+        histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
+        historyList = []
+        for history in histories:
+            historyList.append({
+                'age' : history.age,
+                'checkResult' : history.checkResult,
+                'checkedAt' : history.checked_at,
+            })
+        return make_response(jsonify({
+            'data' : historyList
+        }), 201)
 
 
 #Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
