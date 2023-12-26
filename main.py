@@ -81,7 +81,7 @@ class InputPatientData(Resource):
         blob = bucket.blob(user_directory+ patient_directory + '/')
         blob.upload_from_string('')
 
-        inputData = PatientData(patient_name =nameInput, child_dob=dobInput, gender=genderInput, user=uname)
+        inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, user=uname)
 
         db_session.add(inputData)
         db_session.commit()
