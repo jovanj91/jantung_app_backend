@@ -142,8 +142,8 @@ class GetPatientCheckHistory(Resource):
 class Preprocessing(Resource):
     def video2frames(self, video):
         rawImages = {}
-        # output_dir = '1.frames'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '1.frames'
+        os.makedirs(output_dir, exist_ok=True)
         cap = cv2.VideoCapture(video)
         target_frames = self.jumlahFrame
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -158,26 +158,26 @@ class Preprocessing(Resource):
                 break
             if frame_count % frame_skip == 0:
                 rawImages[frame_index] = frame
-                # output_image_path = os.path.join(output_dir, f'frame_{frame_index:04d}.png')
-                # cv2.imwrite(output_image_path, frame)
+                output_image_path = os.path.join(output_dir, f'frame_{frame_index:04d}.png')
+                cv2.imwrite(output_image_path, frame)
                 frame_index += 1
             frame_count += 1
         cap.release()
         return rawImages
 
     def median_filter(self, image):
-        # output_dir = '2.medianfiltered'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '2.medianfiltered'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         kernelsize = 21 #5 edge more complete
         res = cv2.medianBlur(image, kernelsize)
-        # output_path = os.path.join(output_dir, 'median.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'median.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def high_boost_filter(self, image, lpf, kons):
-        # output_dir = '3.highboost'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '3.highboost'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
@@ -189,58 +189,58 @@ class Preprocessing(Resource):
                     val = min(max(val, 0), 255)
                     res[i, j, k] = val
         res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-        # output_path = os.path.join(output_dir, 'highboost.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'highboost.png')
+        cv2.imwrite(output_path, res)
         return res
 
 
     def morph(self, image):
-        # output_dir = '4.morphology'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '4.morphology'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         # ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3, 3))
         ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3), (1, 1))
         res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
         res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
-        # output_path = os.path.join(output_dir, 'morphology.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'morphology.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def thresholding(self, image):
-        # output_dir = '5.thresholding'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '5.thresholding'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
-        # output_path = os.path.join(output_dir, 'threshold.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'threshold.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def canny(self, image):
-        # output_dir = '6.canny'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '6.canny'
+        os.makedirs(output_dir, exist_ok=True)
         res = image.copy()
         res = cv2.Canny(image, 0, 255, 3)
-        # output_path = os.path.join(output_dir, 'canny.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'canny.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def region_filter(self, image):
-        # output_dir = '7.region'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '7.region'
+        os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
-        # output_path = os.path.join(output_dir, 'region.png')
+        output_path = os.path.join(output_dir, 'region.png')
         for i in range(len(contours)):
             if len(contours[i]) > self.R:
                 # cv2.drawContours(res, contours, i, (255, 0, 0), 1)
                 cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                # cv2.imwrite(output_path, res)
+                cv2.imwrite(output_path, res)
         return res
 
 
     def coLinear(self, image):
-        # output_dir = '8.colinear'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '8.colinear'
+        os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
         data = [0] * 100
@@ -274,8 +274,8 @@ class Preprocessing(Resource):
         for i in range(len(contours)):
             if data[i] == 0:
                 cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                # output_path = os.path.join(output_dir, 'colinear.png')
-                # cv2.imwrite(output_path, res)
+                output_path = os.path.join(output_dir, 'colinear.png')
+                cv2.imwrite(output_path, res)
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         roi_contours = max(contours, key=cv2.contourArea)
@@ -779,13 +779,13 @@ class Preprocessing(Resource):
 
         for i in range(len(sources)-1):
             for j in range(self.jumlah * 2):
-                # output_path = os.path.join('10.Tracking', f'TrackingLK.png')
+                output_path = os.path.join('10.Tracking', f'TrackingLK.png')
                 gfx_awal = int(goodFeatures[0][j][0][0])
                 gfy_awal = int(goodFeatures[0][j][0][1])
                 gfx_akhir = int(goodFeatures[len(sources) - 1][j][0][0])
                 gfy_akhir = int(goodFeatures[len(sources) - 1][j][0][1])
                 cv2.line(sources[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
-                # cv2.imwrite(output_path, sources[0])
+                cv2.imwrite(output_path, sources[0])
 
                 # length = math.sqrt((gfx_awal - gfx_akhir)**2 + (gfy_awal - gfy_akhir)**2)
                 length = np.sqrt(pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) + pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) )
@@ -897,8 +897,8 @@ class Preprocessing(Resource):
         return elem[1]
 
     def track_visualization(self, images, goodFeatures):
-        # output_dir = '10.Tracking'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '10.Tracking'
+        os.makedirs(output_dir, exist_ok=True)
         trackingresult = {}
         # Visualize Tracking
         vect1 = [[] for _ in range(10)]
@@ -937,8 +937,8 @@ class Preprocessing(Resource):
                 x, y = goodFeatures[i][j][0]
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
                 trackingresult[i] = image
-            # output_path = os.path.join(output_dir, f"tracking_{i}.png")
-            # cv2.imwrite(output_path, image)
+            output_path = os.path.join(output_dir, f"tracking_{i}.png")
+            cv2.imwrite(output_path, image)
 
         return trackingresult
 
@@ -960,7 +960,7 @@ class Preprocessing(Resource):
             height, width, layers = img.shape
             size = (width,height)
             img_array.append(img)
-        out = cv2.VideoWriter(f'',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+        out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
 
         for i in range(len(img_array)):
             out.write(img_array[i])
@@ -969,7 +969,6 @@ class Preprocessing(Resource):
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        checked_at = request.form['checked_at']
         rawVideo = werkzeug.utils.secure_filename(videofile.filename)
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
@@ -992,13 +991,15 @@ class Preprocessing(Resource):
         self.frames = {}
         res ={}
 
-        patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
+        childData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
-        patient_directory = f'{patientData.patient_name}_data'
+        patient_directory = f'{childData.patient_name}_data'
         blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename)
         blob.upload_from_string(rawVideo)
+
+
 
         self.frames = self.video2frames(rawVideo)
         rawImages = copy.deepcopy(self.frames)
@@ -1023,8 +1024,8 @@ class Preprocessing(Resource):
         # cv2.waitKey(0)
 
         res = self.triangleEquation(res)
-        # cv2.imshow("Triangle Equation", res)
-        # cv2.waitKey(0)
+        cv2.imshow("Triangle Equation", res)
+        cv2.waitKey(0)
 
         #Tracking
         # GFcoordinates = self.GetGoodFeaturesIntersection(res)
@@ -1047,15 +1048,15 @@ class Preprocessing(Resource):
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
         #Visualisasi Good Feature
-        # output_dir = '9.GoodFeatures'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '9.GoodFeatures'
+        os.makedirs(output_dir, exist_ok=True)
         for framecount, image in rawImages.items():
             if framecount == 0:
                 for i in range(self.jumlah*2):
                     x, y = self.goodFeatures[framecount][i][0]
-                    # output_path = os.path.join(output_dir, 'GF.png')
+                    output_path = os.path.join(output_dir, 'GF.png')
                     cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                    # cv2.imwrite(output_path, image)
+                    cv2.imwrite(output_path, image)
                 break
 
         # self.opticalFlowCalc(rawImages, self.goodFeatures)
