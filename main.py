@@ -1005,7 +1005,9 @@ class Preprocessing(Resource):
         blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
+        print('frames'+len(self.frames))
         rawImages = copy.deepcopy(self.frames)
+        print('rawImages:' + len(rawImages))
         #Preprocessing
         res = self.median_filter(rawImages[0])
         res = self.high_boost_filter(rawImages[0], res, 2.5)
@@ -1089,7 +1091,7 @@ class Preprocessing(Resource):
         inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
-            'name' : patientData.name,
+            'name' : patientData.patient_name,
             'age' : age,
             'checkResult' : result,
             'checkedAt' : datetime.now(),})
