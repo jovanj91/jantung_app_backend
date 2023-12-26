@@ -26,6 +26,8 @@ app.teardown_appcontext(lambda exc: db_session.close())
 bucket_name = "jantungappbackend.appspot.com"
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
+storage_client = storage.Client()
+
 
 class HelloWorld(Resource):
     @login_required
@@ -72,7 +74,6 @@ class InputPatientData(Resource):
         dobInput = request.json['dob']
         uname = db_session.query(User).filter_by(username=current_user.username).first()
 
-        storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         # blobs = bucket.list_blobs(prefix=user_directory + '/')
@@ -123,12 +124,15 @@ class GetPatientCheckHistory(Resource):
         patient_id = request.json['patient_id']
         histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
         historyList = []
-        for history in histories:
-            historyList.append({
-                'age' : history.age,
-                'checkResult' : history.checkResult,
-                'checkedAt' : history.checked_at,
-            })
+        if histories:
+            for history in histories:
+                historyList.append({
+                    'age' : history.age,
+                    'checkResult' : history.checkResult,
+                    'checkedAt' : history.checked_at,
+                })
+        else:
+            historyList.append("No History Data")
         return make_response(jsonify({
             'data' : historyList
         }), 201)
@@ -963,6 +967,11 @@ class Preprocessing(Resource):
         out.release()
 
     def post(self):
+        patient_id = request.json['patient_id']
+        videofile = request.files['video']
+        rawVideo = werkzeug.utils.secure_filename(videofile.filename)
+        print("\nReceived image File name : " + videofile.filename)
+        print(videofile)
         #variable konstan
         self.R = 65 #radius
         self.X1, self.Y1 = 0, 0 #centerpoint
@@ -981,11 +990,17 @@ class Preprocessing(Resource):
         self.jumlahFrame = 10
         self.frames = {}
         res ={}
-        if(request.method == "POST"):
-            videofile = request.files['video']
-            rawVideo = werkzeug.utils.secure_filename(videofile.filename)
-            print("\nReceived image File name : " + videofile.filename)
-            print(videofile)
+
+        childData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
+
+        bucket = storage_client.bucket(bucket_name)
+        user_directory = f'{current_user.username}_data/'
+        patient_directory = f'{childData.patient_name}_data'
+        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename)
+        blob.upload_from_string(rawVideo)
+
+
+
         self.frames = self.video2frames(rawVideo)
         rawImages = copy.deepcopy(self.frames)
         #Preprocessing
