@@ -975,7 +975,7 @@ class Preprocessing(Resource):
         videofile = request.files['video']
         self.checked_at = request.form['checked_at']
         # rawVideo = werkzeug.utils.secure_filename(videofile.filename)
-        rawVideo = videofile
+        rawVideo = videofile.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
         #variable konstan
