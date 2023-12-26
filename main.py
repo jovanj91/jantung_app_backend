@@ -141,6 +141,8 @@ class GetPatientCheckHistory(Resource):
 
 #Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
 class Preprocessing(Resource):
+    @login_required
+    @roles_required('user')
     def video2frames(self, video):
         rawImages = {}
         # output_dir = '1.frames'
