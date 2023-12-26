@@ -6,6 +6,7 @@ from flask_security.utils import verify_password, hash_password, login_user
 from google.cloud import storage
 
 from functools import wraps
+from datetime import datetime
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
@@ -1077,6 +1078,27 @@ class Preprocessing(Resource):
 
         blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         blob.upload_from_string(res)
+
+        dob_date = datetime.strptime(patientData.dob, "%Y-%m-%d")
+        current_date = datetime.now()
+        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
+
+        result = 'Normal'
+        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.now(), patient=patientData)
+        checkResult = []
+        checkResult.append({
+            'name' : patientData.name,
+            'age' : age,
+            'checkResult' : result,
+            'checkedAt' : datetime.now(),})
+        db_session.add(inputData)
+        db_session.commit()
+        try:
+            db_session.close()
+            return make_response(jsonify({'data' : checkResult, 'message' : 'Patient Checked Succesfully'}), 201)
+        except Exception as e:
+            db_session.rollback()
+            return make_response(jsonify(error="Patient failed to checked", details=str(e)), 409)
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])

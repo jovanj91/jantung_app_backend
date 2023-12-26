@@ -44,8 +44,7 @@ class PatientData(Base):
     patient_name = Column(String(128))
     dob = Column(Date())
     gender = Column(Integer())
-
-
+    heart_check = relationship('HeartCheck', backref='patient', lazy='dynamic')
 
 class HeartCheck(Base):
     __tablename__ = 'heartCheck'
