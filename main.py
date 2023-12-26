@@ -74,11 +74,11 @@ class InputPatientData(Resource):
 
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
-        user_directory = f'{current_user.username}_data'
+        user_directory = f'{current_user.username}_data/'
         # blobs = bucket.list_blobs(prefix=user_directory + '/')
         # if blobs:
         patient_directory = f'{nameInput}_data'
-        blob = bucket.blob(user_directory+ patient_directory + '/')
+        blob = bucket.blob(user_directory + patient_directory + '/')
         blob.upload_from_string('')
 
         inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, user=uname)
