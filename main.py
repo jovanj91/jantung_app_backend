@@ -92,7 +92,7 @@ class InputPatientData(Resource):
             db_session.rollback()
             return make_response(jsonify(error="Data failed to be added", details=str(e)), 409)
 
-class GetPatientData(Resource):
+class GetPatientsData(Resource):
     @login_required
     @roles_required('user')
     def get(self):
@@ -1063,6 +1063,9 @@ class Preprocessing(Resource):
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/detectEchocardiography", methods=["POST"])
+api.add_resource(InputPatientData, "/inputPatientData",  methods = ["POST"])
+api.add_resource(GetPatientsData, "/getPatientsData",  methods = ["GET"])
+api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["POST"])
 api.add_resource(HelloWorld, "/")
 
 with app.app_context():
