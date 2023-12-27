@@ -1010,8 +1010,8 @@ class Preprocessing(Resource):
 
         video_link = self.get_gcs_video_url(bucket_name, video_store_path)
 
-        video_path = f'./{videofile.filename}'  # Change this to an appropriate temporary location
-        videofile.save(video_path)
+        # video_path = f'./{videofile.filename}'  # Change this to an appropriate temporary location
+        # videofile.save(video_path)
         self.frames = self.video2frames(video_link)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
