@@ -632,7 +632,6 @@ if __name__ == '__main__':
         directionI = np.zeros((12, 9), dtype=float)
         rawImages = 0
         frames = {}
-        print(i)
         print(rawVideo)
         frames = video2frames(rawVideo)
         rawImages = copy.copy(frames)

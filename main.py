@@ -974,7 +974,6 @@ class Preprocessing(Resource):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
         self.checked_at = request.form['checked_at']
-        # rawVideo = werkzeug.utils.secure_filename(videofile.filename)
         rawVideo = videofile.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
