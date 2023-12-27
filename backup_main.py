@@ -3,9 +3,11 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask_security import Security, current_user, login_required, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required
 from flask_security.utils import verify_password, hash_password, login_user
-from google.cloud import storage
+# from google.cloud import storage
 
 from functools import wraps
+from datetime import datetime
+from io import BytesIO
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
@@ -26,7 +28,7 @@ app.teardown_appcontext(lambda exc: db_session.close())
 bucket_name = "jantungappbackend.appspot.com"
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
-storage_client = storage.Client()
+# storage_client = storage.Client()
 
 
 class HelloWorld(Resource):
@@ -74,13 +76,13 @@ class InputPatientData(Resource):
         dobInput = request.json['dob']
         uname = db_session.query(User).filter_by(username=current_user.username).first()
 
-        bucket = storage_client.bucket(bucket_name)
-        user_directory = f'{current_user.username}_data/'
-        # blobs = bucket.list_blobs(prefix=user_directory + '/')
-        # if blobs:
-        patient_directory = f'{nameInput}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/')
-        blob.upload_from_string('')
+        # bucket = storage_client.bucket(bucket_name)
+        # user_directory = f'{current_user.username}_data/'
+        # # blobs = bucket.list_blobs(prefix=user_directory + '/')
+        # # if blobs:
+        # patient_directory = f'{nameInput}_data'
+        # blob = bucket.blob(user_directory + patient_directory + '/')
+        # blob.upload_from_string('')
 
         inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, user=uname)
 
@@ -144,7 +146,9 @@ class Preprocessing(Resource):
         rawImages = {}
         output_dir = '1.frames'
         os.makedirs(output_dir, exist_ok=True)
-        cap = cv2.VideoCapture(video)
+        video_capture = cv2.VideoCapture()
+        video_capture.buf = np.frombuffer(video, dtype=np.uint8)
+        cap = video_capture.buf
         target_frames = self.jumlahFrame
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -967,9 +971,10 @@ class Preprocessing(Resource):
         out.release()
 
     def post(self):
-        patient_id = request.form['patient_id']
         videofile = request.files['video']
-        rawVideo = werkzeug.utils.secure_filename(videofile.filename)
+        patient_id = request.form['patient_id']
+        self.checked_at = request.form['checked_at']
+        rawVideo = videofile.stream.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
         #variable konstan
@@ -991,18 +996,18 @@ class Preprocessing(Resource):
         self.frames = {}
         res ={}
 
-        childData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
+        patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
-        bucket = storage_client.bucket(bucket_name)
-        user_directory = f'{current_user.username}_data/'
-        patient_directory = f'{childData.patient_name}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/' + videofile.filename)
-        blob.upload_from_string(rawVideo)
-
-
+        # bucket = storage_client.bucket(bucket_name)
+        # user_directory = f'{current_user.username}_data/'
+        # patient_directory = f'{patientData.patient_name}_data'
+        # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename)
+        # blob.upload_from_string(rawVideo)
 
         self.frames = self.video2frames(rawVideo)
+        print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
+        print('rawImages:' + str(len(rawImages)))
         #Preprocessing
         res = self.median_filter(rawImages[0])
         res = self.high_boost_filter(rawImages[0], res, 2.5)
@@ -1024,8 +1029,8 @@ class Preprocessing(Resource):
         # cv2.waitKey(0)
 
         res = self.triangleEquation(res)
-        cv2.imshow("Triangle Equation", res)
-        cv2.waitKey(0)
+        # cv2.imshow("Triangle Equation", res)
+        # cv2.waitKey(0)
 
         #Tracking
         # GFcoordinates = self.GetGoodFeaturesIntersection(res)
@@ -1048,15 +1053,15 @@ class Preprocessing(Resource):
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
         #Visualisasi Good Feature
-        output_dir = '9.GoodFeatures'
-        os.makedirs(output_dir, exist_ok=True)
+        # output_dir = '9.GoodFeatures'
+        # os.makedirs(output_dir, exist_ok=True)
         for framecount, image in rawImages.items():
             if framecount == 0:
                 for i in range(self.jumlah*2):
                     x, y = self.goodFeatures[framecount][i][0]
-                    output_path = os.path.join(output_dir, 'GF.png')
+                    # output_path = os.path.join(output_dir, 'GF.png')
                     cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                    cv2.imwrite(output_path, image)
+                    # cv2.imwrite(output_path, image)
                 break
 
         # self.opticalFlowCalc(rawImages, self.goodFeatures)
@@ -1073,7 +1078,31 @@ class Preprocessing(Resource):
 
         self.ExtractionMethod()
 
-        self.frames2video(res)
+        res = self.frames2video(res)
+
+        # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
+        # blob.upload_from_string(res)
+
+        dob_date = datetime.strptime(patientData.dob, "%Y-%m-%d")
+        current_date = datetime.now()
+        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
+
+        result = 'Normal'
+        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.now(), patient=patientData)
+        checkResult = []
+        checkResult.append({
+            'name' : patientData.patient_name,
+            'age' : age,
+            'checkResult' : result,
+            'checkedAt' : datetime.now(),})
+        db_session.add(inputData)
+        db_session.commit()
+        try:
+            db_session.close()
+            return make_response(jsonify({'data' : checkResult, 'message' : 'Patient Checked Succesfully'}), 201)
+        except Exception as e:
+            db_session.rollback()
+            return make_response(jsonify(error="Patient failed to checked", details=str(e)), 409)
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])

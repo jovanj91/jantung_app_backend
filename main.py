@@ -970,6 +970,9 @@ class Preprocessing(Resource):
         out.release()
         return out
 
+    def get_gcs_video_url(self, bucket_name, object_name):
+        return f'https://storage.googleapis.com/{bucket_name}/{object_name}'
+
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
@@ -1001,10 +1004,12 @@ class Preprocessing(Resource):
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename)
+        video_store_path = user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename
+        blob = bucket.blob(video_store_path)
         blob.upload_from_string(rawVideo)
 
-        self.frames = self.video2frames(rawVideo)
+        video_content = self.get_gcs_video_url(bucket_name, video_store_path)
+        self.frames = self.video2frames(video_store_path)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
         print('rawImages:' + str(len(rawImages)))
