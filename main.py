@@ -956,18 +956,17 @@ class Preprocessing(Resource):
                 cv2.line(images[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
                 cv2.imwrite(output_path, images[0])
 
-    def frames2video(self, images):
+    def frames2video(self, images, bucket_name, object_name):
         img_array = []
         for i, img in images.items():
             height, width, layers = img.shape
             size = (width,height)
             img_array.append(img)
-        out = cv2.VideoWriter(f'{self.checked_at}_result',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
-
+        out = cv2.VideoWriter(f'https://storage.googleapis.com/{bucket_name}/{object_name}/{self.checked_at}_result',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
         for i in range(len(img_array)):
             out.write(img_array[i])
         out.release()
-        return out
+
 
     def get_gcs_video_url(self, bucket_name, object_name):
         return f'https://storage.googleapis.com/{bucket_name}/{object_name}'
@@ -1004,11 +1003,11 @@ class Preprocessing(Resource):
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
-        video_store_path = user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename
-        blob = bucket.blob(video_store_path)
+        video_store_path = user_directory + patient_directory + '/' + f'{self.checked_at}' + '/'
+        blob = bucket.blob(video_store_path + videofile.filename)
         blob.upload_from_string(rawVideo)
 
-        video_link = self.get_gcs_video_url(bucket_name, video_store_path)
+        video_link = self.get_gcs_video_url(bucket_name, video_store_path + videofile.filename)
 
         # video_path = f'./{videofile.filename}'  # Change this to an appropriate temporary location
         # videofile.save(video_path)
@@ -1086,10 +1085,7 @@ class Preprocessing(Resource):
 
         self.ExtractionMethod()
 
-        res = self.frames2video(res)
-
-        blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
-        blob.upload_from_string(res)
+        res = self.frames2video(res, bucket_name, video_store_path + f'{self.checked_at}_result')
 
         # os.remove(video_path)
         dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
