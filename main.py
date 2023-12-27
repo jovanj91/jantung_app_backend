@@ -120,8 +120,8 @@ class GetPatientsData(Resource):
 class GetPatientCheckHistory(Resource):
     @login_required
     @roles_required('user')
-    def post(self):
-        patient_id = request.json['patient_id']
+    def get(self):
+        patient_id = request.args.get('patient_id')
         histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
         historyList = []
         if histories:
@@ -1114,7 +1114,7 @@ api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/detectEchocardiography", methods=["POST"])
 api.add_resource(InputPatientData, "/inputPatientData",  methods = ["POST"])
 api.add_resource(GetPatientsData, "/getPatientsData",  methods = ["GET"])
-api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["POST"])
+api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["GET"])
 api.add_resource(HelloWorld, "/")
 
 with app.app_context():
