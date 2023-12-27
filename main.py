@@ -1093,7 +1093,7 @@ class Preprocessing(Resource):
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.datetime.now(), patient=patientData)
+        inputData = HeartCheck(age=age, checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'name' : patientData.patient_name,
