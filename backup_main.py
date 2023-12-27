@@ -6,8 +6,6 @@ from flask_security.utils import verify_password, hash_password, login_user
 # from google.cloud import storage
 
 from functools import wraps
-from datetime import datetime
-from io import BytesIO
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
@@ -146,9 +144,7 @@ class Preprocessing(Resource):
         rawImages = {}
         output_dir = '1.frames'
         os.makedirs(output_dir, exist_ok=True)
-        video_capture = cv2.VideoCapture()
-        video_capture.buf = np.frombuffer(video, dtype=np.uint8)
-        cap = video_capture.buf
+        cap = cv2.VideoCapture(video)
         target_frames = self.jumlahFrame
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -973,7 +969,7 @@ class Preprocessing(Resource):
     def post(self):
         videofile = request.files['video']
         patient_id = request.form['patient_id']
-        self.checked_at = request.form['checked_at']
+        self.checked_at = datetime.datetime.now()
         rawVideo = videofile.stream.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
@@ -1083,12 +1079,12 @@ class Preprocessing(Resource):
         # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         # blob.upload_from_string(res)
 
-        dob_date = datetime.strptime(patientData.dob, "%Y-%m-%d")
-        current_date = datetime.now()
+        dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
+        current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.now(), patient=patientData)
+        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'name' : patientData.patient_name,

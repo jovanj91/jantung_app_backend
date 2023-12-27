@@ -6,7 +6,6 @@ from flask_security.utils import verify_password, hash_password, login_user
 from google.cloud import storage
 
 from functools import wraps
-from datetime import datetime
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
@@ -976,7 +975,7 @@ class Preprocessing(Resource):
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        self.checked_at = datetime.now()
+        self.checked_at = datetime.datetime.now()
         rawVideo = videofile.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
@@ -1089,18 +1088,18 @@ class Preprocessing(Resource):
         blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         blob.upload_from_string(res)
 
-        dob_date = datetime.strptime(patientData.dob, "%Y-%m-%d")
-        current_date = datetime.now()
+        dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
+        current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.now(), patient=patientData)
+        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'name' : patientData.patient_name,
             'age' : age,
             'checkResult' : result,
-            'checkedAt' : datetime.now(),})
+            'checkedAt' : datetime.datetime.now(),})
         db_session.add(inputData)
         db_session.commit()
         try:
