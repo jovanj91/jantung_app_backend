@@ -970,7 +970,7 @@ class Preprocessing(Resource):
         return out
 
     def get_gcs_video_url(self, bucket_name, object_name):
-        return f'https://storage.googleapis.com/{bucket_name}/{object_name}'
+        return f'https://storage.cloud.google.com/{bucket_name}/{object_name}'
 
     def post(self):
         patient_id = request.form['patient_id']
