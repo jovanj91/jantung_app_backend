@@ -889,11 +889,11 @@ class Preprocessing(Resource):
             nm[j] = num4
 
         # MENYIMPAN FEATURE EXTRACTION METHOD I
-        with open("M1F1_2AC.csv", "a") as myfile:
-            for j in range((self.jumlah * 2) - 1):
-                myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
-                if j == (self.jumlah * 2) - 2:
-                    myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])},{str(pm[j + 1])},{str(nm[j + 1])}\n")
+        # with open("M1F1_2AC.csv", "a") as myfile:
+        #     for j in range((self.jumlah * 2) - 1):
+        #         myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
+        #         if j == (self.jumlah * 2) - 2:
+        #             myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])},{str(pm[j + 1])},{str(nm[j + 1])}\n")
 
     def sort_by_second(self, elem):
         return elem[1]
@@ -1091,7 +1091,7 @@ class Preprocessing(Resource):
         blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         blob.upload_from_string(res)
 
-        os.remove(video_path)
+        # os.remove(video_path)
         dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
         current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
