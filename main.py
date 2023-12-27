@@ -1000,6 +1000,7 @@ class Preprocessing(Resource):
 
         patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
+        #sa
         bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data'
@@ -1007,9 +1008,11 @@ class Preprocessing(Resource):
         blob = bucket.blob(video_store_path)
         blob.upload_from_string(rawVideo)
 
-        video_content = self.get_gcs_video_url(bucket_name, video_store_path)
-        print(video_content)
-        self.frames = self.video2frames(video_content)
+        video_link = self.get_gcs_video_url(bucket_name, video_store_path)
+
+        video_path = f'/{videofile.filename}'  # Change this to an appropriate temporary location
+        videofile.save(video_path)
+        self.frames = self.video2frames(video_path)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
         print('rawImages:' + str(len(rawImages)))
@@ -1088,6 +1091,7 @@ class Preprocessing(Resource):
         blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         blob.upload_from_string(res)
 
+        os.remove(video_path)
         dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
         current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
