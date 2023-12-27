@@ -1088,7 +1088,7 @@ class Preprocessing(Resource):
         res = self.frames2video(res, bucket_name, video_store_path + f'{self.checked_at}_result')
 
         # os.remove(video_path)
-        dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
+        dob_date = datetime.datetime.strptime(str(patientData.dob), "%Y-%m-%d")
         current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
