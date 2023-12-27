@@ -976,7 +976,7 @@ class Preprocessing(Resource):
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        self.checked_at = request.form['checked_at']
+        self.checked_at = datetime.now()
         rawVideo = videofile.read()
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
@@ -1009,6 +1009,7 @@ class Preprocessing(Resource):
         blob.upload_from_string(rawVideo)
 
         video_content = self.get_gcs_video_url(bucket_name, video_store_path)
+        print(video_content)
         self.frames = self.video2frames(video_content)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
