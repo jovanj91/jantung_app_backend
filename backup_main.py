@@ -169,7 +169,7 @@ class Preprocessing(Resource):
         output_dir = '2.medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        kernelsize = 21 #5 edge more complete
+        kernelsize = 27 #5 edge more complete
         res = cv2.medianBlur(image, kernelsize)
         output_path = os.path.join(output_dir, 'median.png')
         cv2.imwrite(output_path, res)
@@ -325,6 +325,7 @@ class Preprocessing(Resource):
                 if len(contours[m]) > self.R:
                     k = 0
                     for i in range (len(contours[m]) - 7):
+                        print(f'i : {i}')
                         p1 = contours[m][i][0]
                         p2 = contours[m][i + 1][0]
                         p3 = contours[m][i + 2][0]
@@ -362,8 +363,8 @@ class Preprocessing(Resource):
                             k += 1
                             self.CCX[j] = p4[0]
                             self.CCY[j] = p4[1]
-                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=3)
-                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=3)
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=1)
 
                     center[0] = self.X1
                     center[1] = self.Y1
@@ -376,7 +377,7 @@ class Preprocessing(Resource):
                         a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
                         b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
                         c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        alpha = math.acos(((b1 * b1) + (c1 * c1) - (a1 * a1))/ (2 * b1 * c1)) * (180/math.pi)
 
                         if (alpha < min):
                             min = alpha
@@ -390,7 +391,7 @@ class Preprocessing(Resource):
                         a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
                         b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
                         c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        alpha = math.acos(((b1 * b1) + (c1 * c1) - (a1 * a1))/ (2 * b1 * c1)) * (180/math.pi)
                         if (alpha < min):
                             min = alpha
                             jum1 = i
@@ -401,7 +402,7 @@ class Preprocessing(Resource):
                     y1[0][0] = p1[1]
                     x2[0][0] = p2[0]
                     y2[0][0] = p2[1]
-                    cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
+                    # cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
 
                 j += 1
 
@@ -411,27 +412,27 @@ class Preprocessing(Resource):
                 print(len(contours))
                 if len(contours[m]) > self.R:
                     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+            cv2.circle(res, (p1[0], p1[1]), 5, (255, 0, 0), -1)
+            cv2.line(res, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
 
-            cv2.line(res, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=3)
 
+            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # j = 0
+            # res = np.zeros_like(res)
+            # for m in range(len(contours)):
+            #     print(len(contours))
+            #     if len(contours[m]) > self.R:
+            #         pt = (self.X1, self.Y1)
+            #         out = cv2.pointPolygonTest(contours[m], pt, False)
+            #         print(out)
+            #         if out > 0:
+            #             break
 
-            contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            j = 0
-            res = np.zeros_like(res)
-            for m in range(len(contours)):
-                print(len(contours))
-                if len(contours[m]) > self.R:
-                    pt = (self.X1, self.Y1)
-                    out = cv2.pointPolygonTest(contours[m], pt, False)
-                    print(out)
-                    if out > 0:
-                        break
+            #     j+=1
+            # for m in range(len(contours)):
+            #     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
 
-                j+=1
-            for m in range(len(contours)):
-                cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-
-            contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             return res
         if jum2 == 2:
             print("bentuk=3")
@@ -967,10 +968,11 @@ class Preprocessing(Resource):
         out.release()
 
     def post(self):
-        videofile = request.files['video']
         patient_id = request.form['patient_id']
+        videofile = request.files['video']
         self.checked_at = datetime.datetime.now()
-        rawVideo = videofile.stream.read()
+        # rawVideo = videofile.read()
+        rawVideo = "./NewDatasets/" + videofile.filename
         print("\nReceived image File name : " + videofile.filename)
         print(videofile)
         #variable konstan
@@ -1025,8 +1027,8 @@ class Preprocessing(Resource):
         # cv2.waitKey(0)
 
         res = self.triangleEquation(res)
-        # cv2.imshow("Triangle Equation", res)
-        # cv2.waitKey(0)
+        cv2.imshow("Triangle Equation", res)
+        cv2.waitKey(0)
 
         #Tracking
         # GFcoordinates = self.GetGoodFeaturesIntersection(res)
@@ -1079,18 +1081,18 @@ class Preprocessing(Resource):
         # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         # blob.upload_from_string(res)
 
-        dob_date = datetime.datetime.strptime(patientData.dob, "%Y-%m-%d")
+        dob_date = datetime.datetime.strptime(str(patientData.dob), "%Y-%m-%d")
         current_date = datetime.datetime.now()
         age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, checked_at=datetime.datetime.now(), patient=patientData)
+        inputData = HeartCheck(age=age, checkResult=result, video_path=videofile.filename, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'name' : patientData.patient_name,
             'age' : age,
             'checkResult' : result,
-            'checkedAt' : datetime.now(),})
+            'checkedAt' : datetime.datetime.now(),})
         db_session.add(inputData)
         db_session.commit()
         try:
@@ -1114,4 +1116,4 @@ with app.app_context():
 if __name__ == '__main__':
     # run() method of Flask class runs the application
     # on the local development server.
-    app.run(host="127.0.0.1", port=8080)
+    app.run(host="0.0.0.0", port=8080)
