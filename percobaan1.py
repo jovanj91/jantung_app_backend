@@ -82,7 +82,6 @@ def tracking_PSAX():
 def klasifikasi_PSAX():
     global index
     if index == 3:
-
         df = pd.read_csv('M1F1_PSAX.csv')
         X = df.drop('CLASS', axis=1)
         X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
@@ -100,7 +99,7 @@ def klasifikasi_PSAX():
         with open("M1F1_PSAX.csv", "w") as data:
             for line in lines:
                 data.write(line)
-        
+
         if result == 0:
             print("Tidak Normal")
             call.label_9.setText("Tidak Normal")
@@ -118,7 +117,7 @@ def klasifikasi_PSAX():
         print("Pilih Load Data")
         win32api.MessageBox(0, 'Pilih Load Data', 'Pemberitahuan PSAX')
 
-####################### SHORT AXIS END PROCESS ######################### 
+####################### SHORT AXIS END PROCESS #########################
 
 
 ####################### FOUR CHAMBER PROCESS (0-4) #########################
@@ -206,7 +205,7 @@ def klasifikasi_4AC():
         with open("M1F1_4AC.csv", "w") as data:
             for line in lines:
                 data.write(line)
-        
+
         if result == 0:
             print("Tidak Normal")
             call.label_11.setText("Tidak Normal")
@@ -224,7 +223,7 @@ def klasifikasi_4AC():
         print("Pilih Load Data")
         win32api.MessageBox(0, 'Pilih Load Data', 'Pemberitahuan 4AC')
 
-####################### FOUR CHAMBER END PROCESS ######################### 
+####################### FOUR CHAMBER END PROCESS #########################
 
 ####################### TWO CHAMBER PROCESS (0-4) #########################
 #LoadImage
@@ -311,7 +310,7 @@ def klasifikasi_2AC():
         with open("M1F1_2AC.csv", "w") as data:
             for line in lines:
                 data.write(line)
-        
+
         if result == 0:
             print("Tidak Normal")
             call.label_12.setText("Tidak Normal")
@@ -329,10 +328,10 @@ def klasifikasi_2AC():
         print("Pilih Load Data")
         win32api.MessageBox(0, 'Pilih Load Data', 'Pemberitahuan 2AC')
 
-####################### TWO CHAMBER END PROCESS ######################### 
+####################### TWO CHAMBER END PROCESS #########################
 
 
-  
+
 #setup gui
 app=QtWidgets.QApplication([])
 call=uic.loadUi("multiview.ui")

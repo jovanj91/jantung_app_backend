@@ -9,6 +9,10 @@ from functools import wraps
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy
+from sklearn.externals import joblib
+from sklearn import preprocessing
+import pickle
+import pandas as pd
 import numpy as np
 import cv2
 import math
@@ -891,7 +895,7 @@ class Preprocessing(Resource):
             nm[j] = num4
 
         # MENYIMPAN FEATURE EXTRACTION METHOD I
-        with open("M1F1_2AC.csv", "a") as myfile:
+        with open("M1F1_PSAX.csv", "a") as myfile:
             for j in range((self.jumlah * 2) - 1):
                 myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
                 if j == (self.jumlah * 2) - 2:
@@ -957,6 +961,29 @@ class Preprocessing(Resource):
                 cv2.circle(images[0], (gfx_awal, gfy_awal), 1, (255, 255, 255), 2, 8, 0)
                 cv2.line(images[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
                 cv2.imwrite(output_path, images[0])
+
+    def classification(self):
+        df = pd.read_csv('M1F1_PSAX.csv')
+        X = df.drop('CLASS', axis=1)
+        X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
+        temp = X.shape[0]
+        filename = 'SVM_PSAX'
+        loaded_model = joblib.load(filename)
+        model = pickle.dumps(loaded_model)
+        prediction = pickle.loads(model)
+        result = prediction.predict(X[temp-1:temp])
+
+        with open("M1F1_PSAX.csv", "r") as data:
+            lines = data.readlines()
+            lines = lines[:-1]
+        with open("M1F1_PSAX.csv", "w") as data:
+            for line in lines:
+                data.write(line)
+
+        if result == 0:
+            print("Tidak Normal")
+        else:
+            print("Normal")
 
     def frames2video(self, images):
         img_array = []
