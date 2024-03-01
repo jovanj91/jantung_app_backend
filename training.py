@@ -47,11 +47,11 @@ def video2frames(video):
     cap.release()
     return rawImages
 
-def median_filter(image):
+def median_filter(image, kernel):
     output_dir = '2.medianfiltered'
     os.makedirs(output_dir, exist_ok=True)
     res = np.copy(image)
-    kernelsize = 5 #5 edge more complete
+    kernelsize = kernel #5 edge more complete
     res = cv2.medianBlur(image, kernelsize)
     output_path = os.path.join(output_dir, 'median.png')
     cv2.imwrite(output_path, res)
@@ -88,11 +88,11 @@ def morph(image):
     cv2.imwrite(output_path, res)
     return res
 
-def thresholding(image):
+def thresholding(image, thr_b, thr_a):
     output_dir = '5.thresholding'
     os.makedirs(output_dir, exist_ok=True)
     res = np.copy(image)
-    _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
+    _, res = cv2.threshold(image, thr_b, thr_a, cv2.THRESH_BINARY) #original at 90
     output_path = os.path.join(output_dir, 'threshold.png')
     cv2.imwrite(output_path, res)
     return res
@@ -156,19 +156,23 @@ def coLinear(image):
     for i in range(len(contours)):
         if data[i] == 0:
             cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-            output_path = os.path.join(output_dir, 'colinear.png')
-            cv2.imwrite(output_path, res)
+            # output_path = os.path.join(output_dir, 'colinear.png')
+            # cv2.imwrite(output_path, res)
 
     contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
     roi_contours = max(contours, key=cv2.contourArea)
     res = np.zeros_like(image)
-    cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), thickness=cv2.FILLED)
+    cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
+    output_path = os.path.join(output_dir, 'colinear.png')
+    cv2.imwrite(output_path, res)
     return res
 
 
 def triangleEquation(source):
 
     contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     data1 = [[] for _ in range(200)]
     x1 = [[0] * 100 for _ in range(100)]
     y1 = [[0] * 100 for _ in range(100)]
@@ -182,7 +186,11 @@ def triangleEquation(source):
     idk = 0
     for i in range(len(contours)):
         if len(contours[i]) > R:
-            pt = (X1, Y1)
+            x, y, w, h = cv2.boundingRect(contours[i])
+            center_x = x + w // 2
+            center_y = y + h // 2
+            pt = (center_x, center_y)
+            # pt = (X1, Y1)
             #check titik tengah berada di dalam kontur ROI atau tidak
             out = cv2.pointPolygonTest(contours[i], pt, False)
             print(out)
@@ -192,6 +200,7 @@ def triangleEquation(source):
                 noCon.append(i)
                 jum2 += 1
         idk += 1
+    print("lol : " + str())
     if jum1 > 0:
         print("bentuk=1")
         res = np.zeros_like(source)
@@ -853,22 +862,19 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "abnormalc_11.avi"
+    videofile = "normalc_18.avi"
     rawVideo = "./NewDatasets/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
-
-
-
     frames = video2frames(rawVideo)
     print('frames'+str(len(frames)))
     rawImages = copy.deepcopy(frames)
     print('rawImages:' + str(len(rawImages)))
     #Preprocessing
-    res = median_filter(rawImages[0])
+    res = median_filter(rawImages[0], 27)
     res = high_boost_filter(rawImages[0], res, 2.5)
     res = morph(res)
-    res = thresholding(res)
+    res = thresholding(res, 10, 255) #10, 255
     #Segmentation
     res = canny(res)
     res = region_filter(res)

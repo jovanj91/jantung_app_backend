@@ -274,13 +274,16 @@ class Preprocessing(Resource):
         for i in range(len(contours)):
             if data[i] == 0:
                 cv2.drawContours(res, contours, i, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                output_path = os.path.join(output_dir, 'colinear.png')
-                cv2.imwrite(output_path, res)
+                # output_path = os.path.join(output_dir, 'colinear.png')
+                # cv2.imwrite(output_path, res)
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
         roi_contours = max(contours, key=cv2.contourArea)
         res = np.zeros_like(image)
-        cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), thickness=cv2.FILLED)
+        cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
+        output_path = os.path.join(output_dir, 'colinear.png')
+        cv2.imwrite(output_path, res)
         return res
 
 
