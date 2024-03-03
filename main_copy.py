@@ -531,18 +531,27 @@ class Preprocessing(Resource):
 
         for i in range(len(contours)):
             cv2.drawContours(garis, contours, i, color)
-            rect_points = cv2.boxPoints(minRect[i])
+            rect_points = cv2.boxPoints(minRect[i]).astype(int)
 
-        kondisi1 = rect_points[3][0] - rect_points[0][0]
-        kondisi2 = rect_points[0][1] - rect_points[3][1]
+        print('rect : ' + str(rect_points))
+        cv2.polylines(garis, [rect_points], True, color, 2)
+        # cv2.imshow('garis', garis)
+        # kondisi1 = rect_points[3][0] - rect_points[0][0]
+        # kondisi2 = rect_points[0][1] - rect_points[3][1]
 
+        kondisi1 = rect_points[2][0] - rect_points[1][0]
+        kondisi2 = rect_points[1][1] - rect_points[2][1]
+
+        print("kondisi 1 :" + str(kondisi1))
+        print("kondisi 2 :" + str(kondisi2))
+        global valnorm
         if kondisi1 < kondisi2:
+            valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
             print('kanan')
-            self.valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
 
             # garis kanan
             garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (int(rect_points[3][0]), int(rect_points[3][1])), (int(rect_points[0][0]), int(rect_points[0][1])), color)
+            cv2.line(garis, (rect_points[2]), (rect_points[3]), color)
 
             for y in range(garis.shape[0]):
                 for x in range(garis.shape[1]):
@@ -564,7 +573,7 @@ class Preprocessing(Resource):
             garis = np.zeros(res.shape, dtype=res.dtype)
             temp1 = 0
             temp2 = 0
-            cv2.line(garis, (int(rect_points[1][0]), int(rect_points[1][1])), (int(rect_points[2][0]), int(rect_points[2][1])), color)
+            cv2.line(garis, (rect_points[0]), (rect_points[1]), color)
             for y in range(garis.shape[0]):
                 for x in range(garis.shape[1]):
                     if garis[y, x] > 0:
@@ -609,12 +618,12 @@ class Preprocessing(Resource):
             return coordinate2
 
         else:
-            self.valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
+            valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
             print('kiri')
 
+            #garis kanan
             garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (int(rect_points[2][0]), int(rect_points[2][1])), (int(rect_points[3][0]), int(rect_points[3][1])), color)
-
+            cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
             for x in range(garis.shape[1]):
                 for y in range(garis.shape[0]):
                     if garis[y, x] > 0:
@@ -625,17 +634,17 @@ class Preprocessing(Resource):
             data = float(temp1) / (self.jumlah + 1)
             temp1 = 0
 
-            for i in np.arange(data / 2, batasan, data):
+            for i in range(int(data / 2), int(batasan) + 1, int(data)):
                 temp1 += 1
                 temp2 = int(round(i))
                 coordinate2[temp1][0] = coordinate1[temp2][0]
                 if temp1 == self.jumlah:
                     break
 
+            #garis kiri
             temp1 = 0
             garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (int(rect_points[0][0]), int(rect_points[0][1])), (int(rect_points[1][0]), int(rect_points[1][1])), color)
-
+            cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
             for x in range(garis.shape[1]):
                 for y in range(garis.shape[0]):
                     if garis[y, x] > 0:
@@ -647,7 +656,7 @@ class Preprocessing(Resource):
             temp1 = 0
             temp2 = 0
 
-            for i in np.arange(data / 2, batasan, data):
+            for i in range(int(data / 2), int(batasan) + 1, int(data)):
                 temp1 += 1
                 temp2 = int(round(i))
                 coordinate2[temp1][1] = coordinate1[temp2][1]
@@ -681,6 +690,7 @@ class Preprocessing(Resource):
                             hasil = np.zeros(res.shape, dtype=res.dtype)
                             garis = np.zeros(res.shape, dtype=res.dtype)
                             break
+
             return coordinate2
 
     def findAngle(self, x1, y1, x2, y2):

@@ -422,19 +422,27 @@ def GetGoodFeaturesIntersection(res):
 
     for i in range(len(contours)):
         cv2.drawContours(garis, contours, i, color)
-        rect_points = cv2.boxPoints(minRect[i])
+        rect_points = cv2.boxPoints(minRect[i]).astype(int)
 
-    kondisi1 = rect_points[3][0] - rect_points[0][0]
-    kondisi2 = rect_points[0][1] - rect_points[3][1]
+    print('rect : ' + str(rect_points))
+    cv2.polylines(garis, [rect_points], True, color, 2)
+    # cv2.imshow('garis', garis)
+    # kondisi1 = rect_points[3][0] - rect_points[0][0]
+    # kondisi2 = rect_points[0][1] - rect_points[3][1]
 
+    kondisi1 = rect_points[2][0] - rect_points[1][0]
+    kondisi2 = rect_points[1][1] - rect_points[2][1]
+
+    print("kondisi 1 :" + str(kondisi1))
+    print("kondisi 2 :" + str(kondisi2))
     global valnorm
     if kondisi1 < kondisi2:
+        valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
         print('kanan')
-        valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
 
         # garis kanan
         garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (int(rect_points[3][0]), int(rect_points[3][1])), (int(rect_points[0][0]), int(rect_points[0][1])), color)
+        cv2.line(garis, (rect_points[2]), (rect_points[3]), color)
 
         for y in range(garis.shape[0]):
             for x in range(garis.shape[1]):
@@ -456,7 +464,7 @@ def GetGoodFeaturesIntersection(res):
         garis = np.zeros(res.shape, dtype=res.dtype)
         temp1 = 0
         temp2 = 0
-        cv2.line(garis, (int(rect_points[1][0]), int(rect_points[1][1])), (int(rect_points[2][0]), int(rect_points[2][1])), color)
+        cv2.line(garis, (rect_points[0]), (rect_points[1]), color)
         for y in range(garis.shape[0]):
             for x in range(garis.shape[1]):
                 if garis[y, x] > 0:
@@ -501,12 +509,12 @@ def GetGoodFeaturesIntersection(res):
         return coordinate2
 
     else:
-        valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
+        valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
         print('kiri')
 
+        #garis kanan
         garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (int(rect_points[2][0]), int(rect_points[2][1])), (int(rect_points[3][0]), int(rect_points[3][1])), color)
-
+        cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
         for x in range(garis.shape[1]):
             for y in range(garis.shape[0]):
                 if garis[y, x] > 0:
@@ -517,17 +525,17 @@ def GetGoodFeaturesIntersection(res):
         data = float(temp1) / (jumlah + 1)
         temp1 = 0
 
-        for i in np.arange(data / 2, batasan, data):
+        for i in range(int(data / 2), int(batasan) + 1, int(data)):
             temp1 += 1
             temp2 = int(round(i))
             coordinate2[temp1][0] = coordinate1[temp2][0]
             if temp1 == jumlah:
                 break
 
+        #garis kiri
         temp1 = 0
         garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (int(rect_points[0][0]), int(rect_points[0][1])), (int(rect_points[1][0]), int(rect_points[1][1])), color)
-
+        cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
         for x in range(garis.shape[1]):
             for y in range(garis.shape[0]):
                 if garis[y, x] > 0:
@@ -539,7 +547,7 @@ def GetGoodFeaturesIntersection(res):
         temp1 = 0
         temp2 = 0
 
-        for i in np.arange(data / 2, batasan, data):
+        for i in range(int(data / 2), int(batasan) + 1, int(data)):
             temp1 += 1
             temp2 = int(round(i))
             coordinate2[temp1][1] = coordinate1[temp2][1]
@@ -573,6 +581,8 @@ def GetGoodFeaturesIntersection(res):
                         hasil = np.zeros(res.shape, dtype=res.dtype)
                         garis = np.zeros(res.shape, dtype=res.dtype)
                         break
+
+
         return coordinate2
 
 def findAngle(x1, y1, x2, y2):
@@ -690,6 +700,7 @@ def opticalFlowCalc(sources, goodFeatures):
 def featureExtraction(goodFeatures):
     for j in range(jumlah):
         for i in range(9):
+            print(goodFeatures[i][j])
             # PENCARIAN SISI KIRI(GOODFEATURE) DERAJAT KEMIRINGAN
             a1 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j + jumlah][0][0]) ** 2 +
                         (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j + jumlah][0][1]) ** 2)
@@ -862,8 +873,8 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normalc_18.avi"
-    rawVideo = "./NewDatasets/"+ videofile
+    videofile = "normalc_21.avi"
+    rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
     frames = video2frames(rawVideo)
@@ -871,10 +882,10 @@ if __name__ == '__main__':
     rawImages = copy.deepcopy(frames)
     print('rawImages:' + str(len(rawImages)))
     #Preprocessing
-    res = median_filter(rawImages[0], 27)
-    res = high_boost_filter(rawImages[0], res, 2.5)
+    res = median_filter(rawImages[0], 21)
+    res = high_boost_filter(rawImages[0], res, 1.5)
     res = morph(res)
-    res = thresholding(res, 10, 255) #10, 255
+    res = thresholding(res, 0, 255) #10, 255
     #Segmentation
     res = canny(res)
     res = region_filter(res)
