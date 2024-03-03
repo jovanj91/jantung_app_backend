@@ -360,52 +360,6 @@ def straightLine(x1, y1, x2, y2):
     b = y1 - m * x1
     return m, b
 
-def GetGoodFeaturesPSAX(res):
-    temp1, temp2, = 0, 0
-    count = 0
-    banyak = jumlah * 2
-    garis = np.zeros(res.shape, dtype=res.dtype)
-    hasil = np.zeros(res.shape, dtype=res.dtype)
-    color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
-
-    contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    minRect = [cv2.minAreaRect(contour) for contour in contours]
-
-    for i in range(len(contours)):
-        cv2.drawContours(garis, contours, i, color)
-        rect_points = cv2.boxPoints(minRect[i])
-
-    # kondisi1 = rect_points[3][0] - rect_points[0][0]
-    # kondisi2 = rect_points[0][1] - rect_points[3][1]
-
-    global valnorm
-    valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
-    coordinate1 = []  # Create an empty list for storing coordinates
-
-    for i in range(len(contours)):
-        for j in range(len(contours[i]) // 2): #kontur yang terhubung memiliki len 2 sehingga perlu dibagi 2  terlebih dahlu
-            count += 1
-            coordinate1.append(contours[i][j][0])
-
-    temp1 = 0
-    batasan = count
-    data1 = count / (banyak + 1)
-
-    coordinate2 = [None] * (banyak + 1)
-
-    for i in np.arange(data1, batasan, data1):
-        temp1 += 1
-        temp2 = int(round(i))
-        coordinate2[temp1] = coordinate1[temp2]
-
-        if temp1 == banyak:
-            break
-
-    goodFeatures = []
-    for i in range(1, banyak + 1):
-        goodFeatures.append(coordinate2[i])
-
-    return goodFeatures
 
 def GetGoodFeaturesIntersection(res):
     coordinate1 = [[(0, 0) for _ in range(10)] for _ in range(500)]
@@ -435,6 +389,7 @@ def GetGoodFeaturesIntersection(res):
 
     print("kondisi 1 :" + str(kondisi1))
     print("kondisi 2 :" + str(kondisi2))
+    
     global valnorm
     if kondisi1 < kondisi2:
         valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
@@ -906,7 +861,6 @@ if __name__ == '__main__':
 
     #Tracking
     GFcoordinates = GetGoodFeaturesIntersection(res)
-    # GFcoordinates = GetGoodFeaturesPSAX(res)
 
     #Simpan nilai koordinat good feature
     for i in range(len(rawImages)) :

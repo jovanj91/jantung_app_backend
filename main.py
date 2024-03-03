@@ -485,11 +485,19 @@ class Preprocessing(Resource):
             cv2.drawContours(garis, contours, i, color)
             rect_points = cv2.boxPoints(minRect[i])
 
-        # kondisi1 = rect_points[3][0] - rect_points[0][0]
-        # kondisi2 = rect_points[0][1] - rect_points[3][1]
+        coordinate1 = []
 
-        self.valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
-        coordinate1 = []  # Create an empty list for storing coordinates
+        kondisi1 = rect_points[2][0] - rect_points[1][0]
+        kondisi2 = rect_points[1][1] - rect_points[2][1]
+
+        print("kondisi 1 :" + str(kondisi1))
+        print("kondisi 2 :" + str(kondisi2))
+        if kondisi1 < kondisi2:
+            print('kanan')
+            self.valnorm = math.sqrt(pow((rect_points[1][0] - rect_points[2][0], 2)) + pow(rect_points[1][1] - rect_points[2][1], 2))
+        else:
+            print('kiri')
+            self.valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
 
         for i in range(len(contours)):
             for j in range(len(contours[i]) // 2): #kontur yang terhubung memiliki len 2 sehingga perlu dibagi 2  terlebih dahlu
@@ -544,7 +552,7 @@ class Preprocessing(Resource):
 
         print("kondisi 1 :" + str(kondisi1))
         print("kondisi 2 :" + str(kondisi2))
-        global valnorm
+
         if kondisi1 < kondisi2:
             valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
             print('kanan')
@@ -618,7 +626,7 @@ class Preprocessing(Resource):
             return coordinate2
 
         else:
-            valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
+            self.valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
             print('kiri')
 
             #garis kanan

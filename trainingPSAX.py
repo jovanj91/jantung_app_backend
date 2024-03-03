@@ -375,11 +375,20 @@ def GetGoodFeaturesPSAX(res):
         cv2.drawContours(garis, contours, i, color)
         rect_points = cv2.boxPoints(minRect[i])
 
-    # kondisi1 = rect_points[3][0] - rect_points[0][0]
-    # kondisi2 = rect_points[0][1] - rect_points[3][1]
+    kondisi1 = rect_points[2][0] - rect_points[1][0]
+    kondisi2 = rect_points[1][1] - rect_points[2][1]
+
+    print("kondisi 1 :" + str(kondisi1))
+    print("kondisi 2 :" + str(kondisi2))
 
     global valnorm
-    valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
+    if kondisi1 < kondisi2:
+        print('kanan')
+        valnorm = math.sqrt(pow((rect_points[1][0] - rect_points[2][0], 2)) + pow(rect_points[1][1] - rect_points[2][1], 2))
+    else:
+        print('kiri')
+        valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
+
     coordinate1 = []  # Create an empty list for storing coordinates
 
     for i in range(len(contours)):
@@ -407,183 +416,6 @@ def GetGoodFeaturesPSAX(res):
 
     return goodFeatures
 
-def GetGoodFeaturesIntersection(res):
-    coordinate1 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-    coordinate2 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-    temp1, temp2, temp3 = 0, 0, 0
-    rect_points = np.zeros((4, 2), dtype=np.float32)
-    color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
-    garis = np.zeros(res.shape, dtype=res.dtype)
-    hasil = np.zeros(res.shape, dtype=res.dtype)
-
-    contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    minRect = [cv2.minAreaRect(contour) for contour in contours]
-
-    for i in range(len(contours)):
-        cv2.drawContours(garis, contours, i, color)
-        rect_points = cv2.boxPoints(minRect[i]).astype(int)
-
-    print('rect : ' + str(rect_points))
-    cv2.polylines(garis, [rect_points], True, color, 2)
-    # cv2.imshow('garis', garis)
-    # kondisi1 = rect_points[3][0] - rect_points[0][0]
-    # kondisi2 = rect_points[0][1] - rect_points[3][1]
-
-    kondisi1 = rect_points[2][0] - rect_points[1][0]
-    kondisi2 = rect_points[1][1] - rect_points[2][1]
-
-    print("kondisi 1 :" + str(kondisi1))
-    print("kondisi 2 :" + str(kondisi2))
-    global valnorm
-    if kondisi1 < kondisi2:
-        valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
-        print('kanan')
-
-        # garis kanan
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (rect_points[2]), (rect_points[3]), color)
-
-        for y in range(garis.shape[0]):
-            for x in range(garis.shape[1]):
-                if garis[y, x] > 0:
-                    temp1 += 1
-                    coordinate1[temp1][0] = (x, y)
-
-        batasan = temp1
-        data = float(temp1) / (jumlah + 1)
-        temp1 = 0
-        for i in np.arange(data / 2, batasan, data):
-            temp1 += 1
-            temp2 = int(round(i))
-            coordinate2[temp1][0] = coordinate1[temp2][0]
-            if temp1 == jumlah:
-                break
-
-        # Garis kiri
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        temp1 = 0
-        temp2 = 0
-        cv2.line(garis, (rect_points[0]), (rect_points[1]), color)
-        for y in range(garis.shape[0]):
-            for x in range(garis.shape[1]):
-                if garis[y, x] > 0:
-                    temp1 += 1
-                    coordinate1[temp1][0] = (x, y)
-
-        batasan = temp1
-        data = float(temp1) / (jumlah + 1)
-        temp1 = 0
-        for i in np.arange(data / 2, batasan, data):
-            temp1 += 1
-            temp2 = int(round(i))
-            coordinate2[temp1][0] = coordinate1[temp2][0]
-            if temp1 == jumlah:
-                break
-
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        temp1 = 0
-        temp2 = jumlah
-
-        for i in range(jumlah):
-            cv2.line(garis, int(coordinate2[i][0]), int(coordinate2[i][1]), 255, 1, 1, 0)
-            hasil = cv2.bitwise_and(garis, res)
-            temp3 = 0
-            for x in range(hasil.shape[1] - 1, 0, -1):
-                for y in range(hasil.shape[0] - 1, 0, -1):
-                    if hasil[y, x] > 0:
-                        temp1 += 1
-                        temp3 += 1
-                        coordinate2[temp1][2] = (x, y)
-                        break
-                if temp3 > 0:
-                    break
-
-            for x in range(hasil.shape[1]):
-                for y in range(hasil.shape[0]):
-                    if hasil[y, x] > 0:
-                        temp2 += 1
-                        coordinate2[temp2][2] = (x, y)
-                        hasil = np.zeros(res.shape, dtype=res.dtype)
-                        garis = np.zeros(res.shape, dtype=res.dtype)
-        return coordinate2
-
-    else:
-        valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
-        print('kiri')
-
-        #garis kanan
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
-        for x in range(garis.shape[1]):
-            for y in range(garis.shape[0]):
-                if garis[y, x] > 0:
-                    temp1 += 1
-                    coordinate1[temp1][0] = (x, y)
-
-        batasan = temp1
-        data = float(temp1) / (jumlah + 1)
-        temp1 = 0
-
-        for i in range(int(data / 2), int(batasan) + 1, int(data)):
-            temp1 += 1
-            temp2 = int(round(i))
-            coordinate2[temp1][0] = coordinate1[temp2][0]
-            if temp1 == jumlah:
-                break
-
-        #garis kiri
-        temp1 = 0
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
-        for x in range(garis.shape[1]):
-            for y in range(garis.shape[0]):
-                if garis[y, x] > 0:
-                    temp1 += 1
-                    coordinate1[temp1][1] = (x, y)
-
-        batasan = temp1
-        data = float(temp1) / (jumlah + 1)
-        temp1 = 0
-        temp2 = 0
-
-        for i in range(int(data / 2), int(batasan) + 1, int(data)):
-            temp1 += 1
-            temp2 = int(round(i))
-            coordinate2[temp1][1] = coordinate1[temp2][1]
-            if temp1 == jumlah:
-                break
-
-        temp1 = 0
-        temp2 = jumlah
-        garis = np.zeros(res.shape, dtype=res.dtype)
-
-        for i in range(1, jumlah + 1):
-            cv2.line(garis, coordinate2[i][0], coordinate2[i][1], 255, 1, 1, 0)
-            hasil = cv2.bitwise_and(garis, res)
-            temp3 = 0
-
-            for x in range(hasil.shape[1] - 1, 0, -1):
-                for y in range(hasil.shape[0] - 1, 0, -1):
-                    if hasil[y, x] > 0:
-                        temp1 += 1
-                        temp3 += 1
-                        coordinate2[temp1][2] = (x, y)
-                        break
-                if temp3 > 0:
-                    break
-
-            for x in range(hasil.shape[1]):
-                for y in range(hasil.shape[0]):
-                    if hasil[y, x] > 0:
-                        temp2 += 1
-                        coordinate2[temp2][2] = (x, y)
-                        hasil = np.zeros(res.shape, dtype=res.dtype)
-                        garis = np.zeros(res.shape, dtype=res.dtype)
-                        break
-
-
-        return coordinate2
 
 def findAngle(x1, y1, x2, y2):
     angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi
