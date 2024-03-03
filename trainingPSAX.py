@@ -200,7 +200,7 @@ def triangleEquation(source):
                 noCon.append(i)
                 jum2 += 1
         idk += 1
-    print("lol : " + str())
+
     if jum1 > 0:
         print("bentuk=1")
         res = np.zeros_like(source)
@@ -622,7 +622,7 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
                 if length[0] > thresh_diff:
-                    if (j > 0 and j < 5) or (j > 6 and j < 11):
+                    if (j > 0 and j < jumlah - 1) or (j > jumlah and j < (jumlah * 2) - 1):
                         length[1] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2) / valnorm * 100
                         length[2] = np.sqrt((goodFeatures[i][j + 1][0][0] - goodFeatures[i + 1][j + 1][0][0]) ** 2 + (goodFeatures[i][j + 1][0][1] - goodFeatures[i + 1][j + 1][0][1]) ** 2) / valnorm * 100
 
@@ -873,7 +873,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normalc_21.avi"
+    videofile = "normalc_25.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
