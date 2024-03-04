@@ -18,6 +18,7 @@ class Role(Base, RoleMixin):
     description = Column(String(255))
     permissions = Column(MutableList.as_mutable(AsaList()), nullable=True)
 
+
 class User(Base, UserMixin):
     __tablename__ = 'user'
     id = Column(Integer(), primary_key=True)
@@ -36,6 +37,7 @@ class User(Base, UserMixin):
     patient_data = relationship('PatientData', backref='user', lazy='dynamic')
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
+
 
 class PatientData(Base):
     __tablename__ = 'patientData'
