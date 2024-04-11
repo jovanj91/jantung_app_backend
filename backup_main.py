@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 
 
-from flask_security import Security, current_user, login_required, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required, auth_token_required
+from flask_security import Security, current_user, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required, auth_token_required
 from flask_security.utils import verify_password, hash_password, login_user
 from config import DevelopmentConfig
 # from google.cloud import storage
@@ -37,7 +37,6 @@ security = Security(app, user_datastore)
 
 class HelloWorld(Resource):
     @auth_token_required
-    @login_required
     def get(self):
         return f"<p>Hello, World! {current_user.username}</p>"
 
@@ -74,15 +73,13 @@ class UploadVideo(Resource):
             })
 
 class InputPatientData(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def post(self):
         nameInput = request.json['name']
         genderInput = request.json['gender']
         dobInput = request.json['dob']
         uname = db_session.query(User).filter_by(username=current_user.username).first()
-
-        User.get_auth_token()
         # bucket = storage_client.bucket(bucket_name)
         # user_directory = f'{current_user.username}_data/'
         # # blobs = bucket.list_blobs(prefix=user_directory + '/')
@@ -91,7 +88,11 @@ class InputPatientData(Resource):
         # blob = bucket.blob(user_directory + patient_directory + '/')
         # blob.upload_from_string('')
 
-        inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, user=uname)
+        dob_date = datetime.datetime.strptime(str(dobInput), "%Y-%m-%d")
+        current_date = datetime.datetime.now()
+        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
+
+        inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, age=age, user=uname)
 
         db_session.add(inputData)
         db_session.commit()
@@ -103,7 +104,7 @@ class InputPatientData(Resource):
             return make_response(jsonify(error="Data failed to be added", details=str(e)), 409)
 
 class GetPatientsData(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def get(self):
         patients = db_session.query(PatientData).filter(PatientData.user_id == current_user.id)
@@ -115,10 +116,11 @@ class GetPatientsData(Resource):
             else :
                 lastCheck = "Not Checked Yet"
             patientList.append({
-                'patient_id' : patient.id,
-                'patient_name' : patient.patient_name,
-                'gender' : patient.gender,
-                'dob' : patient.dob,
+                'patientId' : patient.id,
+                'patientName' : patient.patient_name,
+                'patientAge' : patient.age,
+                'patientGender' : patient.gender,
+                'patientDob' : patient.dob,
                 'lastCheck' : lastCheck
             })
         return make_response(jsonify({
@@ -127,18 +129,17 @@ class GetPatientsData(Resource):
 
 
 class GetPatientCheckHistory(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
-    def post(self):
-        patient_id = request.json['patient_id']
-        histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
+    def get(self):
+        patient_id = request.args.get('patient_id')
+        histories =  db_session.query(HeartCheck, PatientData).join(PatientData, HeartCheck.patient_id == PatientData.id).filter(HeartCheck.patient_id == patient_id)
         historyList = []
         if histories:
-            for history in histories:
+            for heart_check, patient_data in histories:
                 historyList.append({
-                    'age' : history.age,
-                    'checkResult' : history.checkResult,
-                    'checkedAt' : history.checked_at,
+                    'checkResult' : heart_check.checkResult,
+                    'checkedAt' : heart_check.checked_at,
                 })
         else:
             historyList.append("No History Data")
@@ -1126,16 +1127,11 @@ class Preprocessing(Resource):
         # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         # blob.upload_from_string(res)
 
-        dob_date = datetime.datetime.strptime(str(patientData.dob), "%Y-%m-%d")
-        current_date = datetime.datetime.now()
-        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
-
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, video_path=videofile.filename, checked_at=datetime.datetime.now(), patient=patientData)
+        inputData = HeartCheck(checkResult=result, video_path=videofile.filename, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
-            'name' : patientData.patient_name,
-            'age' : age,
+            'patientName' : patientData.patient_name,
             'checkResult' : result,
             'checkedAt' : datetime.datetime.now(),})
         db_session.add(inputData)
@@ -1153,7 +1149,7 @@ api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/detectEchocardiography", methods=["POST"])
 api.add_resource(InputPatientData, "/inputPatientData",  methods = ["POST"])
 api.add_resource(GetPatientsData, "/getPatientsData",  methods = ["GET"])
-api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["POST"])
+api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["GET"])
 api.add_resource(HelloWorld, "/")
 
 

@@ -1,7 +1,7 @@
 from flask import Flask , request, make_response, jsonify, send_file
 from flask_restful import Resource, Api
 from flask_cors import CORS
-from flask_security import Security, current_user, login_required, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required
+from flask_security import Security, current_user, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required, auth_token_required
 from flask_security.utils import verify_password, hash_password, login_user
 from google.cloud import storage
 
@@ -30,7 +30,7 @@ storage_client = storage.Client()
 
 
 class HelloWorld(Resource):
-    @login_required
+    @auth_token_required
     def get(self):
         return f"<p>Hello, World! {current_user.username}</p>"
 
@@ -66,7 +66,7 @@ class UploadVideo(Resource):
             })
 
 class InputPatientData(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def post(self):
         nameInput = request.json['name']
@@ -82,7 +82,11 @@ class InputPatientData(Resource):
         blob = bucket.blob(user_directory + patient_directory + '/')
         blob.upload_from_string('')
 
-        inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, user=uname)
+        dob_date = datetime.datetime.strptime(str(dobInput), "%Y-%m-%d")
+        current_date = datetime.datetime.now()
+        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
+
+        inputData = PatientData(patient_name =nameInput, dob=dobInput, gender=genderInput, age=age, user=uname)
 
         db_session.add(inputData)
         db_session.commit()
@@ -94,7 +98,7 @@ class InputPatientData(Resource):
             return make_response(jsonify(error="Data failed to be added", details=str(e)), 409)
 
 class GetPatientsData(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def get(self):
         patients = db_session.query(PatientData).filter(PatientData.user_id == current_user.id)
@@ -110,7 +114,7 @@ class GetPatientsData(Resource):
                 'patient_name' : patient.patient_name,
                 'gender' : patient.gender,
                 'dob' : patient.dob,
-                'lastCheck' : lastCheck
+                'check_result' : lastCheck
             })
         return make_response(jsonify({
             'data' : patientList
@@ -118,7 +122,7 @@ class GetPatientsData(Resource):
 
 
 class GetPatientCheckHistory(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def get(self):
         patient_id = request.args.get('patient_id')
@@ -140,7 +144,7 @@ class GetPatientCheckHistory(Resource):
 
 #Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
 class Preprocessing(Resource):
-    @login_required
+    @auth_token_required
     @roles_required('user')
     def video2frames(self, video):
         rawImages = {}
@@ -1105,16 +1109,12 @@ class Preprocessing(Resource):
         res = self.frames2video(res, bucket_name, video_store_path + f'{self.checked_at}_result')
 
         # os.remove(video_path)
-        dob_date = datetime.datetime.strptime(str(patientData.dob), "%Y-%m-%d")
-        current_date = datetime.datetime.now()
-        age = current_date.year - dob_date.year - ((current_date.month, current_date.day) < (dob_date.month, dob_date.day))
 
         result = 'Normal'
-        inputData = HeartCheck(age=age, checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
+        inputData = HeartCheck(checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'name' : patientData.patient_name,
-            'age' : age,
             'checkResult' : result,
             'checkedAt' : datetime.datetime.now(),})
         db_session.add(inputData)

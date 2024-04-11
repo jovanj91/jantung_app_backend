@@ -44,6 +44,7 @@ class PatientData(Base):
     id = Column(Integer(), primary_key=True)
     user_id = Column('user_id', Integer(), ForeignKey('user.id'))
     patient_name = Column(String(128))
+    age = Column(Integer())
     dob = Column(Date())
     gender = Column(Integer())
     heart_check = relationship('HeartCheck', backref='patient', lazy='dynamic')
@@ -52,7 +53,6 @@ class HeartCheck(Base):
     __tablename__ = 'heartCheck'
     id = Column(Integer(), primary_key=True)
     patient_id = Column('patient_id', Integer(), ForeignKey('patientData.id'))
-    age = Column(Integer())
     checkResult = Column(String(24))
     video_path = Column(String(255))
     checked_at = Column(DateTime())
