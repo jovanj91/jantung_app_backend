@@ -11,7 +11,7 @@ from config import DevelopmentConfig
 from functools import wraps
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
-import jwt, os, datetime, werkzeug, copy
+import jwt, os, datetime, werkzeug, copy, io
 # from sklearn.externals import joblib
 from sklearn import preprocessing
 import pickle
@@ -62,15 +62,14 @@ class RegisterUser(Resource):
 
 class UploadVideo(Resource):
     # @token_requried
-    def upload_video():
-        if(request.method == "POST"):
-            videofile = request.files['video']
-            filename = werkzeug.utils.secure_filename(videofile.filename)
-            print("\nReceived image File name : " + videofile.filename)
-            videofile.save("./uploadedvideo/" + filename)
-            return jsonify({
-                "message" : "file uploaded successfully"
-            })
+    def post(self):
+        videofile = request.files['video']
+        filename = werkzeug.utils.secure_filename(videofile.filename)
+        print("\nReceived image File name : " + videofile.filename)
+        videofile.save("./uploadedvideo/" + filename)
+        return jsonify({
+            "message" : "file uploaded successfully"
+        })
 
 class InputPatientData(Resource):
     @auth_token_required
@@ -1016,11 +1015,12 @@ class Preprocessing(Resource):
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        self.checked_at = datetime.datetime.now()
-        # rawVideo = videofile.read()
-        rawVideo = "./NewDatasets/" + videofile.filename
+        self.checked_at = datetime.datetime.now().date()
+
+        filename = werkzeug.utils.secure_filename(videofile.filename)
+        # rawVideo = "./DatasetsPSAX/" + videofile.filename
+        localstorage = './localstorage/'
         print("\nReceived image File name : " + videofile.filename)
-        print(videofile)
         #variable konstan
         self.R = 65 #radius
         self.X1, self.Y1 = 0, 0 #centerpoint
@@ -1043,12 +1043,17 @@ class Preprocessing(Resource):
         patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
         # bucket = storage_client.bucket(bucket_name)
-        # user_directory = f'{current_user.username}_data/'
-        # patient_directory = f'{patientData.patient_name}_data'
-        # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + videofile.filename)
+        user_directory = f'{current_user.username}_data/'
+        patient_directory = f'{patientData.patient_name}_data/'
+        video_store_path = localstorage + user_directory + patient_directory + f'{self.checked_at}/'
+        os.makedirs(video_store_path, exist_ok=True)
+        # blob = bucket.blob(video_store_path + videofile.filename)
         # blob.upload_from_string(rawVideo)
 
-        self.frames = self.video2frames(rawVideo)
+        videofile.save(video_store_path + filename)
+        video_link = video_store_path + filename
+
+        self.frames = self.video2frames(video_link)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
         print('rawImages:' + str(len(rawImages)))
