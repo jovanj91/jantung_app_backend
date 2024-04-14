@@ -12,7 +12,7 @@ from functools import wraps
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
 import jwt, os, datetime, werkzeug, copy, io
-# from sklearn.externals import joblib
+import joblib
 from sklearn import preprocessing
 import pickle
 import pandas as pd
@@ -977,28 +977,31 @@ class Preprocessing(Resource):
                 cv2.line(images[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
                 cv2.imwrite(output_path, images[0])
 
-    # def classification(self):
-    #     df = pd.read_csv('M1F1_PSAX.csv')
-    #     X = df.drop('CLASS', axis=1)
-    #     X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
-    #     temp = X.shape[0]
-    #     filename = 'SVM_PSAX'
-    #     # loaded_model = joblib.load(filename)
-    #     model = pickle.dumps(loaded_model)
-    #     prediction = pickle.loads(model)
-    #     result = prediction.predict(X[temp-1:temp])
+    def classification(self):
+        df = pd.read_csv('M1F1_PSAX.csv')
+        X = df.drop('CLASS', axis=1)
+        X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
+        temp = X.shape[0]
+        filename = 'modelSVM'
+        loaded_model = joblib.load(filename)
+        model = pickle.dumps(loaded_model)
+        prediction = pickle.loads(model)
+        print(X[temp-1:temp])
+        result = prediction.predict(X[temp-1:temp])
 
-    #     with open("M1F1_PSAX.csv", "r") as data:
-    #         lines = data.readlines()
-    #         lines = lines[:-1]
-    #     with open("M1F1_PSAX.csv", "w") as data:
-    #         for line in lines:
-    #             data.write(line)
+        with open("M1F1_PSAX.csv", "r") as data:
+            lines = data.readlines()
+            lines = lines[:-1]
+        with open("M1F1_PSAX.csv", "w") as data:
+            for line in lines:
+                data.write(line)
 
-    #     if result == 0:
-    #         print("Tidak Normal")
-    #     else:
-    #         print("Normal")
+        if result == 0:
+            print("Tidak Normal")
+            return 'Tidak Normal'
+        else:
+            print("Normal")
+            return 'Normal'
 
     def frames2video(self, images):
         img_array = []
@@ -1018,7 +1021,7 @@ class Preprocessing(Resource):
         self.checked_at = datetime.datetime.now().date()
 
         filename = werkzeug.utils.secure_filename(videofile.filename)
-        # rawVideo = "./DatasetsPSAX/" + videofile.filename
+        # filename = "./DatasetsPSAX/" + videofile.filename
         localstorage = './localstorage/'
         print("\nReceived image File name : " + videofile.filename)
         #variable konstan
@@ -1126,13 +1129,12 @@ class Preprocessing(Resource):
         self.featureExtraction(self.goodFeatures)
 
         self.ExtractionMethod()
-
         res = self.frames2video(res)
 
         # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
         # blob.upload_from_string(res)
 
-        result = 'Normal'
+        result = self.classification()
         inputData = HeartCheck(checkResult=result, video_path=videofile.filename, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({

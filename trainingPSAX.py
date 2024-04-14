@@ -624,7 +624,7 @@ def ExtractionMethod():
         nm[j] = num4
 
     # MENYIMPAN FEATURE EXTRACTION METHOD I
-    with open("M1F1_2AC.csv", "a") as myfile:
+    with open("M1F1_PSAX.csv", "a") as myfile:
         for j in range((jumlah * 2) - 1):
             myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
             if j == (jumlah * 2) - 2:
@@ -705,7 +705,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normalc_25.avi"
+    videofile = "normalc_4.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
