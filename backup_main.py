@@ -1135,7 +1135,7 @@ class Preprocessing(Resource):
         # blob.upload_from_string(res)
 
         result = self.classification()
-        inputData = HeartCheck(checkResult=result, video_path=videofile.filename, checked_at=datetime.datetime.now(), patient=patientData)
+        inputData = HeartCheck(checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'patientName' : patientData.patient_name,

@@ -185,6 +185,7 @@ def triangleEquation(source):
     noCon = []
     idk = 0
     for i in range(len(contours)):
+
         if len(contours[i]) > R:
             x, y, w, h = cv2.boundingRect(contours[i])
             center_x = x + w // 2
@@ -212,6 +213,11 @@ def triangleEquation(source):
     if jum2 == 1:
         print("bentuk=2")
         j = 0
+        res = np.zeros_like(source)
+        # startpoint = contours[0][0][0]
+        # endpoint = contours[0][int(len(contours[0])/2)][0]
+        # cv2.circle(res, startpoint, 5, (255, 0, 0), -1)
+        # cv2.circle(res, endpoint, 5, (255, 0, 0), -1)
         for m in range(len(contours)):
             if len(contours[m]) > R:
                 k = 0
@@ -296,14 +302,36 @@ def triangleEquation(source):
 
             j += 1
 
-        contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        res = np.zeros_like(source)
+        # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # res = np.zeros_like(source)
         for m in range(len(contours)):
             print(len(contours))
+            # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
             if len(contours[m]) > R:
-                cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-        cv2.circle(res, (p1[0], p1[1]), 5, (255, 0, 0), -1)
-        cv2.line(res, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
+                end_idx = 0
+
+                # find endpoint index
+                print(len(contours[m]))
+                for i in range(len(contours[m])):
+                    checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                    endpoint = [p2[0], p2[1]]
+                    result_variable = np.allclose(np.array(checkpoint), np.array(endpoint), atol =1) #atol nilai toleransi mendekati
+                    if (result_variable == True):
+                        end_idx = i
+                        break
+
+                #redraw contour from startpoint to endpoint
+                for i in range(len(contours[m])):
+                    checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                    startpoint = [p1[0], p1[1]]
+                    endpoint = [p1[0], p1[1]]
+                    result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
+                    if (result_variable == True):
+
+                        contour_part = [contours[m][i:end_idx+1]]
+                        cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+
+
 
 
         # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -624,7 +652,7 @@ def ExtractionMethod():
         nm[j] = num4
 
     # MENYIMPAN FEATURE EXTRACTION METHOD I
-    with open("M1F1_PSAX.csv", "a") as myfile:
+    with open("M1F1_2AC.csv", "a") as myfile:
         for j in range((jumlah * 2) - 1):
             myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
             if j == (jumlah * 2) - 2:
@@ -705,7 +733,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normalc_4.avi"
+    videofile = "abnormalc_11.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
@@ -714,10 +742,10 @@ if __name__ == '__main__':
     rawImages = copy.deepcopy(frames)
     print('rawImages:' + str(len(rawImages)))
     #Preprocessing
-    res = median_filter(rawImages[0], 21)
+    res = median_filter(rawImages[0], 13)
     res = high_boost_filter(rawImages[0], res, 1.5)
     res = morph(res)
-    res = thresholding(res, 0, 255) #10, 255
+    res = thresholding(res, 10, 255) #10, 255
     #Segmentation
     res = canny(res)
     res = region_filter(res)
@@ -733,9 +761,12 @@ if __name__ == '__main__':
     # cv2.imshow(f'nyoba', res)
     # cv2.waitKey(0)
 
+    output_dir = '12.Triangle Equation'
+    os.makedirs(output_dir, exist_ok=True)
     res = triangleEquation(res)
-    cv2.imshow("Triangle Equation", res)
-    cv2.waitKey(0)
+    output_path = os.path.join(output_dir, 'TriangleEquation.png')
+    cv2.imwrite(output_path, res)
+
 
     #Tracking
     # GFcoordinates = GetGoodFeaturesIntersection(res)
@@ -757,16 +788,16 @@ if __name__ == '__main__':
                 goodFeatures[i] = np.append(goodFeatures[i], np.array([x, y], dtype=np.float32))
             goodFeatures[i] = goodFeatures[i].reshape((jumlah * 2, 1, 2))
 
-    #Visualisasi Good Feature
-    # output_dir = '9.GoodFeatures'
-    # os.makedirs(output_dir, exist_ok=True)
+    # Visualisasi Good Feature
+    output_dir = '9.GoodFeatures'
+    os.makedirs(output_dir, exist_ok=True)
     for framecount, image in rawImages.items():
         if framecount == 0:
             for i in range(jumlah*2):
                 x, y = goodFeatures[framecount][i][0]
-                # output_path = os.path.join(output_dir, 'GF.png')
+                output_path = os.path.join(output_dir, 'GF.png')
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                # cv2.imwrite(output_path, image)
+                cv2.imwrite(output_path, image)
             break
 
     # opticalFlowCalc(rawImages, goodFeatures)
