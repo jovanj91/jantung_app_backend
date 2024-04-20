@@ -604,6 +604,8 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
         print(errs[i])
 
         for k in range(4):
+            print('valnorm :' + str(valnorm))
+            print('k :' + str(k))
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
                 if length[0] > thresh_diff:
@@ -857,7 +859,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "test1-mov-00001.avi"
+    videofile = "normal_4.avi"
     rawVideo = "./Datasets2AC/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
@@ -924,7 +926,7 @@ if __name__ == '__main__':
             break
 
     # opticalFlowCalc(rawImages, goodFeatures)
-    opticalFlowCalc(rawImages, goodFeatures)
+    opticalFlowCalcwithNormalization(rawImages, goodFeatures)
 
     #Visualisasi tracking
     visualFrames1 = copy.deepcopy(frames)
