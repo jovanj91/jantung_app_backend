@@ -47,11 +47,19 @@ def video2frames(video):
     cap.release()
     return rawImages
 
-def median_filter(image, kernel):
+def gaussian_blur(image, kernelsize):
+    output_dir = '2.gausianblur'
+    os.makedirs(output_dir, exist_ok=True)
+    res = np.copy(image)
+    res  = cv2.GaussianBlur(image, kernelsize, 0)
+    output_path = os.path.join(output_dir, 'gaussian.png')
+    cv2.imwrite(output_path, res)
+    return res
+
+def median_filter(image, kernelsize):
     output_dir = '2.medianfiltered'
     os.makedirs(output_dir, exist_ok=True)
     res = np.copy(image)
-    kernelsize = kernel #5 edge more complete
     res = cv2.medianBlur(image, kernelsize)
     output_path = os.path.join(output_dir, 'median.png')
     cv2.imwrite(output_path, res)
@@ -232,7 +240,7 @@ def triangleEquation(source):
                     d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
                         int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
                         int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
-                    # print(f'd{i} =' + str(d))
+
                     if d <= 15:
                         data1[k] = i + 3
                         k += 1
@@ -478,7 +486,11 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
         print(status[i])
         print(errs[i])
 
+
+        
         for k in range(4):
+            print('k :' + str(k))
+
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
                 if length[0] > thresh_diff:
@@ -742,7 +754,8 @@ if __name__ == '__main__':
     rawImages = copy.deepcopy(frames)
     print('rawImages:' + str(len(rawImages)))
     #Preprocessing
-    res = median_filter(rawImages[0], 13)
+    # res = median_filter(rawImages[0], 13)
+    res = gaussian_blur(rawImages[0], (13,13))
     res = high_boost_filter(rawImages[0], res, 1.5)
     res = morph(res)
     res = thresholding(res, 10, 255) #10, 255

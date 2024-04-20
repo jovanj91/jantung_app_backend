@@ -421,11 +421,33 @@ class Preprocessing(Resource):
             contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             res = np.zeros_like(source)
             for m in range(len(contours)):
-                print(len(contours))
                 if len(contours[m]) > self.R:
-                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-            cv2.circle(res, (p1[0], p1[1]), 5, (255, 0, 0), -1)
-            cv2.line(res, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=1)
+                    # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+                    end_idx = 0
+
+                    # find endpoint index
+                    print(len(contours[m]))
+                    for i in range(len(contours[m])):
+                        checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                        endpoint = [p2[0], p2[1]]
+                        result_variable = np.allclose(np.array(checkpoint), np.array(endpoint), atol =1) #atol nilai toleransi mendekati
+                        if (result_variable == True):
+                            end_idx = i
+                            break
+
+                    #redraw contour from startpoint to endpoint
+                    for i in range(len(contours[m])):
+                        checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                        startpoint = [p1[0], p1[1]]
+                        endpoint = [p1[0], p1[1]]
+                        result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
+                        if (result_variable == True):
+
+                            contour_part = [contours[m][i:end_idx+1]]
+                            cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+
+
+
 
 
             # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
