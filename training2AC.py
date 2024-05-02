@@ -588,7 +588,7 @@ def findAngle(x1, y1, x2, y2):
 
 
 def opticalFlowCalcwithNormalization(sources, goodFeatures):
-    thresh_diff = 20.0
+    thresh_diff = 40.0
     termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
     winSize = (50, 50)
     length = [[] for _ in range(4)]
@@ -608,6 +608,7 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
             print('k :' + str(k))
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
+                print('length : ' + str(length))
                 if length[0] > thresh_diff:
                     if (j > 0 and j < jumlah - 1) or (j > jumlah and j < (jumlah * 2) - 1):
                         length[1] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2) / valnorm * 100
@@ -859,7 +860,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normal_4.avi"
+    videofile = "normal_1.avi"
     rawVideo = "./Datasets2AC/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)

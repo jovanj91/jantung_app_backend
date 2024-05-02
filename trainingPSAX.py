@@ -31,7 +31,6 @@ def video2frames(video):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     frame_skip = max(total_frames // target_frames, 1)
-    print('frameskip : ' + str(frame_skip))
     frame_count = 0
     frame_index = 0
     while frame_index < target_frames:
@@ -105,8 +104,32 @@ def thresholding(image, thr_b, thr_a):
     cv2.imwrite(output_path, res)
     return res
 
+def adaptiveThresholding(image, blockSize, C, k, i):
+    output_dir = '5.adaptiveThresholding'
+    os.makedirs(output_dir, exist_ok=True)
+    res = np.copy(image)
+    res = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=blockSize, C=C)
+    output_path = os.path.join(output_dir, 'adaptivethreshold.png')
+    kernel = np.ones((k,k), np.uint8)
+    erosion = cv2.erode(res, kernel, iterations=i)
+    dilation = cv2.dilate(erosion, kernel, iterations=i)
+    res = np.copy(image)
+    res = dilation
+    cv2.imwrite(output_path, res)
+    return res
+
+
 def canny(image):
     output_dir = '6.canny'
+    os.makedirs(output_dir, exist_ok=True)
+    res = image.copy()
+    res = cv2.Canny(image, 0, 255, 3)
+    output_path = os.path.join(output_dir, 'canny.png')
+    cv2.imwrite(output_path, res)
+    return res
+
+def laplacian(image):
+    output_dir = '6.laplacian'
     os.makedirs(output_dir, exist_ok=True)
     res = image.copy()
     res = cv2.Canny(image, 0, 255, 3)
@@ -178,9 +201,9 @@ def coLinear(image):
 
 
 def triangleEquation(source):
-
+    output_dir = '12.Triangle Equation'
+    os.makedirs(output_dir, exist_ok=True)
     contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     data1 = [[] for _ in range(200)]
     x1 = [[0] * 100 for _ in range(100)]
     y1 = [[0] * 100 for _ in range(100)]
@@ -216,6 +239,8 @@ def triangleEquation(source):
         for m in range(len(contours)):
             if len(contours[m]) > R:
                 cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+        output_path = os.path.join(output_dir, 'TriangleEquation.png')
+        cv2.imwrite(output_path, res)
         return res
 
     if jum2 == 1:
@@ -306,20 +331,25 @@ def triangleEquation(source):
                 y1[0][0] = p1[1]
                 x2[0][0] = p2[0]
                 y2[0][0] = p2[1]
+
+                cv2.circle(source, (int(p1[0]), int(p1[1])), 1, (255, 255, 255), 2, 8, 0)
+                cv2.circle(source, (int(p2[0]), int(p2[1])), 1, (255, 255, 255), 2, 8, 0)
                 # cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
 
             j += 1
 
         # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # res = np.zeros_like(source)
+
+
         for m in range(len(contours)):
-            print(len(contours))
+
             # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
             if len(contours[m]) > R:
                 end_idx = 0
 
                 # find endpoint index
-                print(len(contours[m]))
+                # print(len(contours[m]))
                 for i in range(len(contours[m])):
                     checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                     endpoint = [p2[0], p2[1]]
@@ -332,33 +362,14 @@ def triangleEquation(source):
                 for i in range(len(contours[m])):
                     checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                     startpoint = [p1[0], p1[1]]
-                    endpoint = [p1[0], p1[1]]
                     result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
                     if (result_variable == True):
-
                         contour_part = [contours[m][i:end_idx+1]]
                         cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+                        break
 
-
-
-
-        # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # j = 0
-        # res = np.zeros_like(res)
-        # for m in range(len(contours)):
-        #     print(len(contours))
-        #     if len(contours[m]) > R:
-        #         pt = (X1, Y1)
-        #         out = cv2.pointPolygonTest(contours[m], pt, False)
-        #         print(out)
-        #         if out > 0:
-        #             break
-
-        #     j+=1
-        # for m in range(len(contours)):
-        #     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-
-        # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        output_path = os.path.join(output_dir, 'TriangleEquation.png')
+        cv2.imwrite(output_path, res)
         return res
     if jum2 == 2:
         print("bentuk=3")
@@ -485,12 +496,7 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
         goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit)
         print(status[i])
         print(errs[i])
-
-
-        
         for k in range(4):
-            print('k :' + str(k))
-
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
                 if length[0] > thresh_diff:
@@ -539,7 +545,6 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
             lengthDif[i].append(length)
 
 def opticalFlowCalc(sources, goodFeatures):
-
     termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
     winSize = (50, 50)
     for i in range(len(sources)):
@@ -547,7 +552,6 @@ def opticalFlowCalc(sources, goodFeatures):
     for i in range(len(sources) - 1):
         maxLevel = 3
         sources[i] = cv2.medianBlur(sources[i], 9)
-        #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
         goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit,)
         print(status[i])
         print(errs[i])
@@ -562,7 +566,6 @@ def opticalFlowCalc(sources, goodFeatures):
             gfy_akhir = int(goodFeatures[len(sources) - 1][j][0][1])
             cv2.line(sources[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
             cv2.imwrite(output_path, sources[0])
-
             # length = math.sqrt((gfx_awal - gfx_akhir)**2 + (gfy_awal - gfy_akhir)**2)
             length = np.sqrt(pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) + pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) )
             lengthDif[i].append(length)
@@ -572,6 +575,7 @@ def opticalFlowCalc(sources, goodFeatures):
 def featureExtraction(goodFeatures):
     for j in range(jumlah):
         for i in range(9):
+
             print(goodFeatures[i][j])
             # PENCARIAN SISI KIRI(GOODFEATURE) DERAJAT KEMIRINGAN
             a1 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j + jumlah][0][0]) ** 2 +
@@ -664,7 +668,7 @@ def ExtractionMethod():
         nm[j] = num4
 
     # MENYIMPAN FEATURE EXTRACTION METHOD I
-    with open("M1F1_2AC.csv", "a") as myfile:
+    with open("M1F1_PSAX.csv", "a") as myfile:
         for j in range((jumlah * 2) - 1):
             myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
             if j == (jumlah * 2) - 2:
@@ -677,6 +681,7 @@ def track_visualization(images, goodFeatures):
     output_dir = '10.Tracking'
     os.makedirs(output_dir, exist_ok=True)
     trackingresult = {}
+
     # Visualize Tracking
     vect1 = [[] for _ in range(10)]
     vect2 = [[] for _ in range(10)]
@@ -699,7 +704,6 @@ def track_visualization(images, goodFeatures):
             if j == jumlah - 1:
                 for k in range(jumlah):
                     coordinate[i][k + jumlah] = np.array(vect2[i][k])
-
 
     # Draw lines and circles for visualization
     for i, image in images.items():
@@ -745,41 +749,43 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "abnormalc_11.avi"
+    videofile = "normalc_5.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
-    print(videofile)
     frames = video2frames(rawVideo)
-    print('frames'+str(len(frames)))
+    print('total frames :'+str(len(frames)))
     rawImages = copy.deepcopy(frames)
-    print('rawImages:' + str(len(rawImages)))
+
     #Preprocessing
-    # res = median_filter(rawImages[0], 13)
-    res = gaussian_blur(rawImages[0], (13,13))
-    res = high_boost_filter(rawImages[0], res, 1.5)
-    res = morph(res)
-    res = thresholding(res, 10, 255) #10, 255
+    flow_choice = input("Enter 1 to run Flow 1 or 2 to run Flow 2: ")
+    flow_choice = int(flow_choice)
+
+    if flow_choice == 1:
+        res = gaussian_blur(rawImages[0], (5,5))
+        res = high_boost_filter(rawImages[0], res, 2.5)
+        res = morph(res)
+        res = adaptiveThresholding(res, 3, 1, 3, 2) #(blockSize=3, C=1, kernel=3, iterations=2)
+    elif flow_choice == 2:
+        res = median_filter(rawImages[0], 21)
+        res = high_boost_filter(rawImages[0], res, 2.5)
+        res = morph(res)
+        res = thresholding(res, 10, 255)
+    else:
+        print("Invalid choice. Please enter either 1 or 2.")
+
     #Segmentation
+    # res = laplacian(res)
     res = canny(res)
     res = region_filter(res)
     #ambil 1 frame untuk menympan nilai center point
     height, width = res.shape
     X1, Y1 = (width // 2), (height // 2)
 
-        # Visualisasi titik tengah
-
+    # Visualisasi titik tengah
     res = coLinear(res)
-
-    # cv2.circle(res, (X1 ,Y1), 1, (255, 255, 255), 2, 8, 0)
-    # cv2.imshow(f'nyoba', res)
-    # cv2.waitKey(0)
-
-    output_dir = '12.Triangle Equation'
-    os.makedirs(output_dir, exist_ok=True)
     res = triangleEquation(res)
-    output_path = os.path.join(output_dir, 'TriangleEquation.png')
-    cv2.imwrite(output_path, res)
-
+    cv2.imshow('Triangle', res)
+    cv2.waitKey(0)
 
     #Tracking
     # GFcoordinates = GetGoodFeaturesIntersection(res)
