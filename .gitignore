@@ -7,7 +7,9 @@ hasil/
 3.highboost/
 4.morphology/
 5.thresholding/
+5.adaptiveThresholding/
 6.canny/
+6.laplacian/
 7.region/
 8.colinear/
 9.GoodFeatures/
