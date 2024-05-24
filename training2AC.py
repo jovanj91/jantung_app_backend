@@ -86,6 +86,7 @@ def high_boost_filter(image, lpf, kons):
     return res
 
 
+
 def morph(image):
     output_dir = '4.morphology'
     os.makedirs(output_dir, exist_ok=True)
@@ -107,8 +108,31 @@ def thresholding(image, thr_b, thr_a):
     cv2.imwrite(output_path, res)
     return res
 
+def adaptiveThresholding(image, blockSize, C, k, i):
+    output_dir = '5.adaptiveThresholding'
+    os.makedirs(output_dir, exist_ok=True)
+    res = np.copy(image)
+    res = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=blockSize, C=C)
+    output_path = os.path.join(output_dir, 'adaptivethreshold.png')
+    kernel = np.ones((k,k), np.uint8)
+    erosion = cv2.erode(res, kernel, iterations=i)
+    dilation = cv2.dilate(erosion, kernel, iterations=i)
+    res = np.copy(image)
+    res = dilation
+    cv2.imwrite(output_path, res)
+    return res
+
 def canny(image):
     output_dir = '6.canny'
+    os.makedirs(output_dir, exist_ok=True)
+    res = image.copy()
+    res = cv2.Canny(image, 0, 255, 3)
+    output_path = os.path.join(output_dir, 'canny.png')
+    cv2.imwrite(output_path, res)
+    return res
+
+def laplacian(image):
+    output_dir = '6.laplacian'
     os.makedirs(output_dir, exist_ok=True)
     res = image.copy()
     res = cv2.Canny(image, 0, 255, 3)
@@ -222,6 +246,7 @@ def triangleEquation(source):
     if jum2 == 1:
         print("bentuk=2")
         j = 0
+        res = np.zeros_like(source)
         for m in range(len(contours)):
             if len(contours[m]) > R:
                 k = 0
@@ -307,15 +332,14 @@ def triangleEquation(source):
             j += 1
 
         # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # res = np.zeros_like(source)
         for m in range(len(contours)):
-            print(len(contours))
+
             # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
             if len(contours[m]) > R:
                 end_idx = 0
 
                 # find endpoint index
-                print(len(contours[m]))
+                # print(len(contours[m]))
                 for i in range(len(contours[m])):
                     checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                     endpoint = [p2[0], p2[1]]
@@ -328,13 +352,11 @@ def triangleEquation(source):
                 for i in range(len(contours[m])):
                     checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                     startpoint = [p1[0], p1[1]]
-                    endpoint = [p1[0], p1[1]]
                     result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
                     if (result_variable == True):
-
                         contour_part = [contours[m][i:end_idx+1]]
                         cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
-
+                        break
 
         # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # j = 0
@@ -495,9 +517,9 @@ def GetGoodFeaturesIntersection(res):
 
     else:
         valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
-        print('kiri')
+        print('Miring Kiri')
 
-        #garis kanan
+        #garis kiri
         garis = np.zeros(res.shape, dtype=res.dtype)
         cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
         for x in range(garis.shape[1]):
@@ -517,10 +539,11 @@ def GetGoodFeaturesIntersection(res):
             if temp1 == jumlah:
                 break
 
-        #garis kiri
+        #garis kanan
         temp1 = 0
         garis = np.zeros(res.shape, dtype=res.dtype)
         cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
+
         for x in range(garis.shape[1]):
             for y in range(garis.shape[0]):
                 if garis[y, x] > 0:
@@ -566,8 +589,6 @@ def GetGoodFeaturesIntersection(res):
                         hasil = np.zeros(res.shape, dtype=res.dtype)
                         garis = np.zeros(res.shape, dtype=res.dtype)
                         break
-
-
         return coordinate2
 
 def findAngle(x1, y1, x2, y2):
@@ -588,7 +609,7 @@ def findAngle(x1, y1, x2, y2):
 
 
 def opticalFlowCalcwithNormalization(sources, goodFeatures):
-    thresh_diff = 40.0
+    thresh_diff = 20.0
     termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
     winSize = (50, 50)
     length = [[] for _ in range(4)]
@@ -604,11 +625,8 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
         print(errs[i])
 
         for k in range(4):
-            print('valnorm :' + str(valnorm))
-            print('k :' + str(k))
             for j in range(len(goodFeatures[i])):
                 length[0] = np.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 + (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2) / valnorm * 100
-                print('length : ' + str(length))
                 if length[0] > thresh_diff:
                     if (j > 0 and j < jumlah - 1) or (j > jumlah and j < (jumlah * 2) - 1):
                         length[1] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2) / valnorm * 100
@@ -860,7 +878,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normal_1.avi"
+    videofile = "normal_2.avi"
     rawVideo = "./Datasets2AC/"+ videofile
     print("\nReceived image File name : " + videofile)
     print(videofile)
@@ -869,12 +887,22 @@ if __name__ == '__main__':
     rawImages = copy.deepcopy(frames)
     print('rawImages:' + str(len(rawImages)))
     #Preprocessing
-    res = median_filter(rawImages[0], 27)
-    # res = gaussian_blur(rawImages[0], (13,13))
+    flow_choice = input("Enter 1 to run Flow 1 or 2 to run Flow 2: ")
+    flow_choice = int(flow_choice)
 
-    res = high_boost_filter(rawImages[0], res, 1.5)
-    res = morph(res)
-    res = thresholding(res, 10, 255) #10, 255
+    if flow_choice == 1:
+        res = gaussian_blur(rawImages[0], (5,5))
+        res = high_boost_filter(rawImages[0], res, 2.5)
+        res = morph(res)
+        res = adaptiveThresholding(res, 3, 1, 3, 2) #(blockSize=3, C=1, kernel=3, iterations=2)
+    elif flow_choice == 2:
+        res = median_filter(rawImages[0], 21)
+        res = high_boost_filter(rawImages[0], res, 2.5)
+        res = morph(res)
+        res = thresholding(res, 20, 255)
+    else:
+        print("Invalid choice. Please enter either 1 or 2.")
+
     #Segmentation
     res = canny(res)
     res = region_filter(res)
@@ -882,7 +910,7 @@ if __name__ == '__main__':
     height, width = res.shape
     X1, Y1 = (width // 2), (height // 2)
 
-        # Visualisasi titik tengah
+    # Visualisasi titik tengah
 
     res = coLinear(res)
 
@@ -891,12 +919,12 @@ if __name__ == '__main__':
     # cv2.waitKey(0)
 
     res = triangleEquation(res)
+    # cv2.circle(res, (144 ,67), 1, (255, 255, 255), 2, 8, 0)
     cv2.imshow("Triangle Equation", res)
     cv2.waitKey(0)
 
     #Tracking
     GFcoordinates = GetGoodFeaturesIntersection(res)
-
     #Simpan nilai koordinat good feature
     for i in range(len(rawImages)) :
         goodFeatures[i] = goodFeatures[i].astype(np.float32)
@@ -914,17 +942,22 @@ if __name__ == '__main__':
                 goodFeatures[i] = np.append(goodFeatures[i], np.array([x, y], dtype=np.float32))
             goodFeatures[i] = goodFeatures[i].reshape((jumlah * 2, 1, 2))
 
-    #Visualisasi Good Feature
-    # output_dir = '9.GoodFeatures'
-    # os.makedirs(output_dir, exist_ok=True)
+    # Visualisasi Good Feature
+    output_dir = '9.GoodFeatures'
+    os.makedirs(output_dir, exist_ok=True)
     for framecount, image in rawImages.items():
         if framecount == 0:
             for i in range(jumlah*2):
                 x, y = goodFeatures[framecount][i][0]
-                # output_path = os.path.join(output_dir, 'GF.png')
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                # cv2.imwrite(output_path, image)
+                if(i <= jumlah):
+                    print('kiri : '+ str((x,y)))
+                else:
+                    print('kanan : '+ str((x,y)))
+                output_path = os.path.join(output_dir, 'GF.png')
+                cv2.imwrite(output_path, image)
             break
+
 
     # opticalFlowCalc(rawImages, goodFeatures)
     opticalFlowCalcwithNormalization(rawImages, goodFeatures)

@@ -650,6 +650,41 @@ def featureExtraction(goodFeatures):
                     print("KELUAR --", angle2)
                     directionI[j][i] = int(4)
 
+def findCenterPoint(source):
+    contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for i in range(len(contours)):
+        if len(contours[i]) > R:
+            x, y, w, h = cv2.boundingRect(contours[i])
+            center_x = x + w // 2
+            center_y = y + h // 2
+    return center_x, center_y
+
+
+def featureExtractionPSAX(goodFeatures):
+    for j in range(jumlah):
+        for i in range(9):
+            #vektor AC
+            vec_AC = (X1 - goodFeatures[i][j][0][0], Y1 - goodFeatures[i][j][0][1])
+            #vektor AB
+            vec_AB = (goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0], goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1])
+            #dot product dari vektor AC dan AB
+            dot_product = vec_AC[0] * vec_AB[0] + vec_AC[1] * vec_AB[1]
+            #magnitudo dari vektor AC dan AB
+            mag_AC = math.sqrt(vec_AC[0]**2 + vec_AC[1]**2)
+            mag_AB = math.sqrt(vec_AB[0]**2 + vec_AB[1]**2)
+            #kosinus sudut
+            cos_angle = dot_product / (mag_AC * mag_AB)
+            #sudut dalam radian
+            angle_rad = math.acos(cos_angle)
+            # Konversi sudut dari radian ke derajat
+            angle_deg = math.degrees(angle_rad)
+            if angle_deg > 90:
+                print("Keluar")
+                direction[j][i] = int(0)
+            else:
+                print("Masuk")
+                direction[j][i] = int(1)
+
 
 def ExtractionMethod():
     pf, nf, pm, nm = [[] for _ in range(jumlah * 2)], [[] for _ in range(jumlah * 2)], [[] for _ in range(jumlah * 2)], [[] for _ in range(jumlah * 2)]
@@ -819,6 +854,8 @@ if __name__ == '__main__':
                 cv2.imwrite(output_path, image)
             break
 
+    X1, Y1 = findCenterPoint(res[0])
+
     # opticalFlowCalc(rawImages, goodFeatures)
     opticalFlowCalcwithNormalization(rawImages, goodFeatures)
 
@@ -828,8 +865,11 @@ if __name__ == '__main__':
     visualFrames2 = copy.deepcopy(frames)
     track_visualization2(visualFrames2, goodFeatures)
 
+
     #Feature Extraction
-    featureExtraction(goodFeatures)
+    # featureExtraction(goodFeatures)
+    featureExtractionPSAX(goodFeatures)
+
 
     ExtractionMethod()
 
