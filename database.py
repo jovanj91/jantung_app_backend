@@ -6,9 +6,9 @@ from sqlalchemy.ext.declarative import declarative_base
 url_object = URL.create(
     "mysql+pymysql",
     username="freedb_admindbjantung",
-    password="h#j7@#cHBN7Gaf@",  # plain (unescaped) text
+    password="x8mqkJkV%5GFFGj",  # plain (unescaped) text
     host="sql.freedb.tech",
-    database="freedb_db_cekjantung",
+    database="freedb_jantungappbackend",
 )
 engine = create_engine(url_object)
 db_session = scoped_session(sessionmaker(autocommit=False,

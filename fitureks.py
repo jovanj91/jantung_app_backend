@@ -36,10 +36,7 @@ def main():
     # Cek apakah sudut lebih dari 90 derajat atau tidak
     if angle > 90:
         print("Keluar")
-
     else:
-        
-
         print("Masuk")
 
 

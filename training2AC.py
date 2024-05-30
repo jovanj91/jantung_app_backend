@@ -659,7 +659,7 @@ def opticalFlowCalcwithNormalization(sources, goodFeatures):
                         P = (goodFeatures[i][j][0][0] + s * length[3], goodFeatures[i][j][0][1] + c * length[3])
                         goodFeatures[i][j][0] = P
 
-                    elif j == (jumlah + 1) or j == (jumlah * 2):
+                    elif j == (jumlah - 1) or j == (jumlah * 2) - 1:
                         length[3] = np.sqrt((goodFeatures[i][j - 1][0][0] - goodFeatures[i + 1][j - 1][0][0]) ** 2 + (goodFeatures[i][j - 1][0][1] - goodFeatures[i + 1][j - 1][0][1]) ** 2)
                         angleNorm = findAngle(goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1], goodFeatures[i][j - 1][0][0], goodFeatures[i][j - 1][0][1])
                         s = np.sin(angleNorm * np.pi / 180)
