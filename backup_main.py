@@ -297,7 +297,8 @@ class Preprocessing(Resource):
 
 
     def triangleEquation(self, source):
-
+        output_dir = '12.Triangle Equation'
+        os.makedirs(output_dir, exist_ok=True)
         contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         data1 = [[] for _ in range(200)]
         x1 = [[0] * 100 for _ in range(100)]
@@ -328,11 +329,14 @@ class Preprocessing(Resource):
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+            output_path = os.path.join(output_dir, 'TriangleEquation.png')
+            cv2.imwrite(output_path, res)
             return res
 
         if jum2 == 1:
             print("bentuk=2")
             j = 0
+            res = np.zeros_like(source)
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     k = 0
@@ -418,8 +422,7 @@ class Preprocessing(Resource):
 
                 j += 1
 
-            contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            res = np.zeros_like(source)
+            # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
@@ -445,28 +448,10 @@ class Preprocessing(Resource):
 
                             contour_part = [contours[m][i:end_idx+1]]
                             cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+                            break
 
-
-
-
-
-            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # j = 0
-            # res = np.zeros_like(res)
-            # for m in range(len(contours)):
-            #     print(len(contours))
-            #     if len(contours[m]) > self.R:
-            #         pt = (self.X1, self.Y1)
-            #         out = cv2.pointPolygonTest(contours[m], pt, False)
-            #         print(out)
-            #         if out > 0:
-            #             break
-
-            #     j+=1
-            # for m in range(len(contours)):
-            #     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-
-            # contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            output_path = os.path.join(output_dir, 'TriangleEquation.png')
+            cv2.imwrite(output_path, res)
             return res
         if jum2 == 2:
             print("bentuk=3")
@@ -522,7 +507,17 @@ class Preprocessing(Resource):
         # kondisi1 = rect_points[3][0] - rect_points[0][0]
         # kondisi2 = rect_points[0][1] - rect_points[3][1]
 
-        self.valnorm = np.sqrt((rect_points[1][0] - rect_points[2][0]) ** 2 + (rect_points[1][1] - rect_points[2][1]) ** 2)
+        kondisi1 = rect_points[2][0] - rect_points[1][0]
+        kondisi2 = rect_points[1][1] - rect_points[2][1]
+
+
+        if kondisi1 < kondisi2:
+            self.valnorm = math.sqrt(pow((rect_points[3][0] - rect_points[2][0], 2)) + pow(rect_points[3][1] - rect_points[2][1], 2))
+        else:
+
+            # valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
+            self.valnorm = math.sqrt(pow(rect_points[3][0] - rect_points[2][0], 2) + pow(rect_points[3][1] - rect_points[2][1], 2))
+
         coordinate1 = []  # Create an empty list for storing coordinates
 
         for i in range(len(contours)):
@@ -550,182 +545,6 @@ class Preprocessing(Resource):
 
         return goodFeatures
 
-    def GetGoodFeaturesIntersection(self, res):
-        coordinate1 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-        coordinate2 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-        temp1, temp2, temp3 = 0, 0, 0
-        rect_points = np.zeros((4, 2), dtype=np.float32)
-        color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        hasil = np.zeros(res.shape, dtype=res.dtype)
-
-        contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        minRect = [cv2.minAreaRect(contour) for contour in contours]
-
-        for i in range(len(contours)):
-            cv2.drawContours(garis, contours, i, color)
-            rect_points = cv2.boxPoints(minRect[i]).astype(int)
-
-        print('rect : ' + str(rect_points))
-        cv2.polylines(garis, [rect_points], True, color, 2)
-        # cv2.imshow('garis', garis)
-        # kondisi1 = rect_points[3][0] - rect_points[0][0]
-        # kondisi2 = rect_points[0][1] - rect_points[3][1]
-
-        kondisi1 = rect_points[2][0] - rect_points[1][0]
-        kondisi2 = rect_points[1][1] - rect_points[2][1]
-
-        print("kondisi 1 :" + str(kondisi1))
-        print("kondisi 2 :" + str(kondisi2))
-        global valnorm
-        if kondisi1 < kondisi2:
-            valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
-            print('kanan')
-
-            # garis kanan
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[2]), (rect_points[3]), color)
-
-            for y in range(garis.shape[0]):
-                for x in range(garis.shape[1]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            for i in np.arange(data / 2, batasan, data):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            # Garis kiri
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            temp1 = 0
-            temp2 = 0
-            cv2.line(garis, (rect_points[0]), (rect_points[1]), color)
-            for y in range(garis.shape[0]):
-                for x in range(garis.shape[1]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            for i in np.arange(data / 2, batasan, data):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            temp1 = 0
-            temp2 = self.jumlah
-
-            for i in range(self.jumlah):
-                cv2.line(garis, int(coordinate2[i][0]), int(coordinate2[i][1]), 255, 1, 1, 0)
-                hasil = cv2.bitwise_and(garis, res)
-                temp3 = 0
-                for x in range(hasil.shape[1] - 1, 0, -1):
-                    for y in range(hasil.shape[0] - 1, 0, -1):
-                        if hasil[y, x] > 0:
-                            temp1 += 1
-                            temp3 += 1
-                            coordinate2[temp1][2] = (x, y)
-                            break
-                    if temp3 > 0:
-                        break
-
-                for x in range(hasil.shape[1]):
-                    for y in range(hasil.shape[0]):
-                        if hasil[y, x] > 0:
-                            temp2 += 1
-                            coordinate2[temp2][2] = (x, y)
-                            hasil = np.zeros(res.shape, dtype=res.dtype)
-                            garis = np.zeros(res.shape, dtype=res.dtype)
-            return coordinate2
-
-        else:
-            valnorm = np.sqrt((rect_points[2][0] - rect_points[3][0]) ** 2 + (rect_points[2][1] - rect_points[3][1]) ** 2)
-            print('kiri')
-
-            #garis kanan
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
-            for x in range(garis.shape[1]):
-                for y in range(garis.shape[0]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-
-            for i in range(int(data / 2), int(batasan) + 1, int(data)):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            #garis kiri
-            temp1 = 0
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
-            for x in range(garis.shape[1]):
-                for y in range(garis.shape[0]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][1] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            temp2 = 0
-
-            for i in range(int(data / 2), int(batasan) + 1, int(data)):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][1] = coordinate1[temp2][1]
-                if temp1 == self.jumlah:
-                    break
-
-            temp1 = 0
-            temp2 = self.jumlah
-            garis = np.zeros(res.shape, dtype=res.dtype)
-
-            for i in range(1, self.jumlah + 1):
-                cv2.line(garis, coordinate2[i][0], coordinate2[i][1], 255, 1, 1, 0)
-                hasil = cv2.bitwise_and(garis, res)
-                temp3 = 0
-
-                for x in range(hasil.shape[1] - 1, 0, -1):
-                    for y in range(hasil.shape[0] - 1, 0, -1):
-                        if hasil[y, x] > 0:
-                            temp1 += 1
-                            temp3 += 1
-                            coordinate2[temp1][2] = (x, y)
-                            break
-                    if temp3 > 0:
-                        break
-
-                for x in range(hasil.shape[1]):
-                    for y in range(hasil.shape[0]):
-                        if hasil[y, x] > 0:
-                            temp2 += 1
-                            coordinate2[temp2][2] = (x, y)
-                            hasil = np.zeros(res.shape, dtype=res.dtype)
-                            garis = np.zeros(res.shape, dtype=res.dtype)
-                            break
-
-            return coordinate2
 
     def findAngle(self, x1, y1, x2, y2):
         angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi
@@ -743,11 +562,10 @@ class Preprocessing(Resource):
 
         return angle
 
-
     def opticalFlowCalcwithNormalization(self, sources, goodFeatures):
         thresh_diff = 20.0
-        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-        winSize = (50, 50)
+        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03)
+        winSize = (21, 21)
         length = [[] for _ in range(4)]
         for i in range(len(sources)):
             sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
@@ -807,112 +625,34 @@ class Preprocessing(Resource):
                 length = (math.sqrt(((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2) + ((goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)) / self.valnorm) * 100
                 self.lengthDif[i].append(length)
 
-    def opticalFlowCalc(self, sources, goodFeatures):
+    def findCenterPoint(self, source):
+        contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R:
+                x, y, w, h = cv2.boundingRect(contours[i])
+                center_x = x + w // 2
+                center_y = y + h // 2
+                break
 
-        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-        winSize = (50, 50)
-        for i in range(len(sources)):
-            sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
-        for i in range(len(sources) - 1):
-            maxLevel = 3
-            sources[i] = cv2.medianBlur(sources[i], 9)
-            #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
-            goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit,)
-            print(status[i])
-            print(errs[i])
+        return center_x, center_y
 
-
-        for i in range(len(sources)-1):
-            for j in range(self.jumlah * 2):
-                output_path = os.path.join('10.Tracking', f'TrackingLK.png')
-                gfx_awal = int(goodFeatures[0][j][0][0])
-                gfy_awal = int(goodFeatures[0][j][0][1])
-                gfx_akhir = int(goodFeatures[len(sources) - 1][j][0][0])
-                gfy_akhir = int(goodFeatures[len(sources) - 1][j][0][1])
-                cv2.line(sources[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
-                cv2.imwrite(output_path, sources[0])
-
-                # length = math.sqrt((gfx_awal - gfx_akhir)**2 + (gfy_awal - gfy_akhir)**2)
-                length = np.sqrt(pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) + pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) )
-                self.lengthDif[i].append(length)
-
-
-
-    def featureExtraction(self, goodFeatures):
+    def featureExtractionPSAX(self, goodFeatures):
         for j in range(self.jumlah):
             for i in range(9):
-                # PENCARIAN SISI KIRI(GOODFEATURE) DERAJAT KEMIRINGAN
-                a1 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j + self.jumlah][0][1]) ** 2)
-                b1 = math.sqrt((goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                c1 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                angle1 = math.acos((b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1)) * 180 / math.pi
-                quadrant1 = (b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1) * 180 / math.pi
-                if quadrant1 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j + self.jumlah][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 > slope2:
-                        print("MASUK ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(1)
-                    else:
-                        print("MASUK --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(2)
-
-                else:
-                    # KELUAR
-                    self.direction[j + self.jumlah][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 < slope2:
-                        print("KELUAR --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(3)
-                    else:
-                        print("KELUAR ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(4)
-
-                # PENCARIAN SISI KANAN (GOODFEATURE) DERAJAT KEMIRINGAN
-                a2 = math.sqrt((goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                b2 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)
-                c2 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                angle2 = math.acos((c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2)) * 180 / math.pi
-                quadrant2 = (c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2) * 180 / math.pi
-                if quadrant2 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 < slope2:
-                        print("MASUK --", angle2)
-                        self.directionI[j][i] = int(1)
-                    else:
-                        print("MASUK ++", angle2)
-                        self.directionI[j][i] = int(2)
-                else:
-                    # KELUAR
+                vec_AC = (self.X1 - goodFeatures[i][j][0][0], self.Y1 - goodFeatures[i][j][0][1])
+                vec_AB = (goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0], goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1])
+                dot_product = vec_AC[0] * vec_AB[0] + vec_AC[1] * vec_AB[1]
+                mag_AC = math.sqrt(vec_AC[0]**2 + vec_AC[1]**2)
+                mag_AB = math.sqrt(vec_AB[0]**2 + vec_AB[1]**2)
+                cos_angle = dot_product / (mag_AC * mag_AB)
+                angle_rad = math.acos(cos_angle)
+                angle_deg = math.degrees(angle_rad)
+                if angle_deg > 90:
+                    # print("Keluar")
                     self.direction[j][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 > slope2:
-                        print("KELUAR ++", angle2)
-                        self.directionI[j][i] = int(3)
-                    else:
-                        print("KELUAR --", angle2)
-                        self.directionI[j][i] = int(4)
+                else:
+                    # print("Masuk")
+                    self.direction[j][i] = int(1)
 
 
     def ExtractionMethod(self):
