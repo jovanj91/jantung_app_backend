@@ -681,6 +681,18 @@ class Preprocessing(Resource):
     def sort_by_second(self, elem):
         return elem[1]
 
+    def goodFeaturesVisualization(self, rawImages):
+        output_dir = '9.GoodFeatures'
+        os.makedirs(output_dir, exist_ok=True)
+        for framecount, image in rawImages.items():
+            if framecount == 0:
+                for i in range(self.jumlah*2):
+                    x, y = self.goodFeatures[framecount][i][0]
+                    output_path = os.path.join(output_dir, 'GF.png')
+                    cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+                    cv2.imwrite(output_path, image)
+                break
+
     def track_visualization(self, images, goodFeatures):
         output_dir = '10.Tracking'
         os.makedirs(output_dir, exist_ok=True)
@@ -834,51 +846,25 @@ class Preprocessing(Resource):
         height, width = res.shape
         self.X1, self.Y1 = (width // 2), (height // 2)
 
-         # Visualisasi titik tengah
 
         res = self.coLinear(res)
 
-        # cv2.circle(res, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
-        # cv2.imshow(f'nyoba', res)
+        res = self.triangleEquation(res)
+        # cv2.imshow("Triangle Equation", res)
         # cv2.waitKey(0)
 
-        res = self.triangleEquation(res)
-        cv2.imshow("Triangle Equation", res)
-        cv2.waitKey(0)
-
-        #Tracking
-        # GFcoordinates = self.GetGoodFeaturesIntersection(res)
         GFcoordinates = self.GetGoodFeaturesPSAX(res)
 
         #Simpan nilai koordinat good feature
         for i in range(len(rawImages)) :
             self.goodFeatures[i] = self.goodFeatures[i].astype(np.float32)
             if i == 0:
-                #with intersect
-                # for j in range(1, self.jumlah * 2 + 1):
-                #     x = GFcoordinates[j][2][0]
-                #     y = GFcoordinates[j][2][1]
-
-                #Without intersect
                 for j in range(self.jumlah * 2):
                     x = GFcoordinates[j][0]
                     y = GFcoordinates[j][1]
                     self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
-        #Visualisasi Good Feature
-        # output_dir = '9.GoodFeatures'
-        # os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in rawImages.items():
-            if framecount == 0:
-                for i in range(self.jumlah*2):
-                    x, y = self.goodFeatures[framecount][i][0]
-                    # output_path = os.path.join(output_dir, 'GF.png')
-                    cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                    # cv2.imwrite(output_path, image)
-                break
-
-        # self.opticalFlowCalc(rawImages, self.goodFeatures)
         self.opticalFlowCalcwithNormalization(rawImages, self.goodFeatures)
 
         #Visualisasi tracking
@@ -888,7 +874,7 @@ class Preprocessing(Resource):
         self.track_visualization2(visualFrames2, self.goodFeatures)
 
         #Feature Extraction
-        self.featureExtraction(self.goodFeatures)
+        self.featureExtractionPSAX(self.goodFeatures)
 
         self.ExtractionMethod()
         res = self.frames2video(res)
