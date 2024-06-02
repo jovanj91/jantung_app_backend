@@ -429,7 +429,7 @@ def GetGoodFeaturesPSAX(res):
     else:
         print('kiri')
         # valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
-        valnorm = math.sqrt(pow((rect_points[3][0] - rect_points[2][0], 2)) + pow(rect_points[3][1] - rect_points[2][1], 2))
+        valnorm = math.sqrt(pow(rect_points[3][0] - rect_points[2][0], 2) + pow(rect_points[3][1] - rect_points[2][1], 2))
 
     coordinate1 = []  # Create an empty list for storing coordinates
 
@@ -476,17 +476,20 @@ def findAngle(x1, y1, x2, y2):
     return angle
 
 
-def opticalFlowCalcwithNormalization(sources, goodFeatures):
+def opticalFlowCalcwithNormalization(sources, goodFeatures, filter, ksize):
     thresh_diff = 20.0
-    termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-    winSize = (50, 50)
+    termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03)
+    winSize = (21, 21)
     length = [[] for _ in range(4)]
 
     for i in range(len(sources)):
         sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
     for i in range(9):
         maxLevel = 3
-        sources[i] = cv2.medianBlur(sources[i], 9)
+        if filter == 1 :
+            sources[i] = cv2.GaussianBlur(sources[i], (ksize,ksize), 0)
+        else :
+            sources[i] = cv2.medianBlur(sources[i], ksize)
         #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
         goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit)
         print(status[i])
@@ -603,7 +606,7 @@ def ExtractionMethodI():
 def ExtractionMethodII():
     pf, nf= [[] for _ in range(jumlah * 2)], [[] for _ in range(jumlah * 2)]
     for j in range(jumlah * 2):
-        num1, num2 = 0, 0, 0, 0
+        num1, num2 = 0, 0
         for i in range(9):
             if direction[j][i] == 1:
                 num1 += 1
@@ -707,7 +710,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "normalc_5.avi"
+    videofile = "abnormalc_29.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     frames = video2frames(rawVideo)
@@ -765,7 +768,7 @@ if __name__ == '__main__':
     goodFeaturesVisualization(rawImages)
 
     #Tracking
-    opticalFlowCalcwithNormalization(rawImages, goodFeatures)
+    opticalFlowCalcwithNormalization(rawImages, goodFeatures, 2, 9) #(x,x, filter[1=gausian,2=median], kernel size)
 
     #Visualisasi Tracking
     visualFrames1 = copy.deepcopy(frames)
