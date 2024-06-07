@@ -208,6 +208,9 @@ def triangleEquation(source):
     x2 = [[0] * 100 for _ in range(100)]
     y2 = [[0] * 100 for _ in range(100)]
     center = [0, 0]
+    checkpoint = 0
+    startpoint = 0
+    endpoint = 0
     jum = 0
     jum1 = 0
     jum2 = 0
@@ -244,7 +247,7 @@ def triangleEquation(source):
     if jum2 == 1:
         print("bentuk=2")
         j = 0
-        res = np.zeros_like(source)
+        # res = np.zeros_like(source)
         for m in range(len(contours)):
             if len(contours[m]) > R:
                 k = 0
@@ -265,8 +268,8 @@ def triangleEquation(source):
                         k += 1
                         CCX[j] = p4[0]
                         CCY[j] = p4[1]
-                        cv2.line(source, (int(CCX[j] - 1), int(CCY[j])), (int(CCX[j] + 1), int(CCY[j])), (255, 0, 0), thickness=1)
-                        cv2.line(source, (int(CCX[j]), int(CCY[j] - 1)), (int(CCX[j]), int(CCY[j] + 1)), (255, 0, 0), thickness=1)
+                        # cv2.line(source, (int(CCX[j] - 1), int(CCY[j])), (int(CCX[j] + 1), int(CCY[j])), (255, 0, 0), thickness=1)
+                        # cv2.line(source, (int(CCX[j]), int(CCY[j] - 1)), (int(CCX[j]), int(CCY[j] + 1)), (255, 0, 0), thickness=1)
 
                 print(k)
                 k = 0
@@ -286,12 +289,13 @@ def triangleEquation(source):
                         k += 1
                         CCX[j] = p4[0]
                         CCY[j] = p4[1]
-                        cv2.line(source, (int(CCX[j] - 1), int(CCY[j])), (int(CCX[j] + 1), int(CCY[j])), (255, 255, 255), thickness=1)
-                        cv2.line(source, (int(CCX[j]), int(CCY[j] - 1)), (int(CCX[j]), int(CCY[j] + 1)), (255, 255, 255), thickness=1)
+                        # cv2.line(source, (int(CCX[j] - 1), int(CCY[j])), (int(CCX[j] + 1), int(CCY[j])), (255, 255, 255), thickness=1)
+                        # cv2.line(source, (int(CCX[j]), int(CCY[j] - 1)), (int(CCX[j]), int(CCY[j] + 1)), (255, 255, 255), thickness=1)
 
                 center[0] = X1
                 center[1] = Y1
                 print(center)
+                print(len(contours[m]))
                 jum = 0
                 min = 2000.0
                 p1 = contours[m][data1[0]][0]
@@ -329,15 +333,13 @@ def triangleEquation(source):
                 cv2.circle(source, (int(p1[0]), int(p1[1])), 1, (255, 255, 255), 2, 8, 0)
                 cv2.circle(source, (int(p2[0]), int(p2[1])), 1, (255, 255, 255), 2, 8, 0)
                 # cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
-
             j += 1
 
+        # cv2.imshow('a', source)
         # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # res = np.zeros_like(source)
-
+        res = np.zeros_like(source)
 
         for m in range(len(contours)):
-
             # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
             if len(contours[m]) > R:
                 end_idx = 0
@@ -359,8 +361,128 @@ def triangleEquation(source):
                     result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
                     if (result_variable == True):
                         contour_part = [contours[m][i:end_idx+1]]
+                        print(contour_part)
                         cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
                         break
+
+        output_path = os.path.join(output_dir, 'TriangleEquation.png')
+        cv2.imwrite(output_path, res)
+        return res
+    if jum2 == 2:
+        print("bentuk=3")
+    if jum2 == 3:
+        print("bentuk=4")
+    if jum2 == 4 or jum2 == 5:
+        print("bentuk=5")
+
+def triangleEquation2(source, thresh):
+    output_dir = '12.Triangle Equation'
+    os.makedirs(output_dir, exist_ok=True)
+    contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    p1 = [0,0]
+    p2 = [0,0]
+    angle_deg = 720
+    center = ()
+    checkpoint = 0
+    startpoint = 0
+    endpoint = 0
+    jum1 = 0
+    jum2 = 0
+    noCon = []
+    idk = 0
+    for i in range(len(contours)):
+        if len(contours[i]) > R:
+            x, y, w, h = cv2.boundingRect(contours[i])
+            # center_x = x + w // 2
+            # center_y = y + h // 2
+            # center = (center_x, center_y)
+            pt = (X1, Y1)
+            #check titik tengah berada di dalam kontur ROI atau tidak
+            out = cv2.pointPolygonTest(contours[i], pt, False)
+            print(out)
+            if out > 0:
+                jum1 += 1
+            else:
+                noCon.append(i)
+                jum2 += 1
+        idk += 1
+
+    if jum1 > 0:
+        print("bentuk=1")
+        res = np.zeros_like(source)
+        for m in range(len(contours)):
+            if len(contours[m]) > R:
+                cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+        output_path = os.path.join(output_dir, 'TriangleEquation.png')
+        cv2.imwrite(output_path, res)
+        return res
+
+    if jum2 == 1:
+        print("bentuk=2")
+        j = 0
+        for m in range(len(contours)):
+            if len(contours[m]) > R:
+                n = int(len(contours[m])/2)
+                if n == 0:
+                    return
+                i = 0
+                j = n - 1
+
+                while i <= j:
+                    # Proses titik dari ujung kiri
+                    print('atas : ' + str(contours[m][i]))
+                    i += 5
+
+                    # Pastikan indeks i tidak melewati indeks j
+                    if i <= j:
+                        print('bawah : ' + str(contours[m][j]))
+                        #vektor AC
+                        vec_AC = (contours[m][i][0][0] - X1, contours[m][i][0][1] - Y1)
+                        #vektor AB
+                        vec_AB = (contours[m][j][0][0] - X1, contours[m][j][0][0] - Y1)
+                        #dot product dari vektor AC dan AB
+                        dot_product = vec_AC[0] * vec_AB[0] + vec_AC[1] * vec_AB[1]
+                        #magnitudo dari vektor AC dan AB
+                        mag_AC = math.sqrt(vec_AC[0]**2 + vec_AC[1]**2)
+                        mag_AB = math.sqrt(vec_AB[0]**2 + vec_AB[1]**2)
+                        #kosinus sudut
+                        cos_angle = dot_product / (mag_AC * mag_AB)
+                        #sudut dalam radian
+                        angle_rad = math.acos(cos_angle)
+                        angle_deg = math.degrees(angle_rad)
+                        print(angle_deg)
+                        if angle_deg < thresh:
+                            p1 = contours[m][i][0]
+                            p2 = contours[m][j][0]
+                            print(p2)
+                            break
+                        j -= 5
+
+                res = np.zeros_like(source)
+                for m in range(len(contours)):
+                    if len(contours[m]) > R:
+                        end_idx = 0
+
+                        # find endpoint index
+                        # print(len(contours[m]))
+                        for i in range(len(contours[m])):
+                            checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                            endpoint = [p2[0], p2[1]]
+                            result_variable = np.allclose(np.array(checkpoint), np.array(endpoint), atol =1) #atol nilai toleransi mendekati
+                            if (result_variable == True):
+                                end_idx = i
+                                break
+
+                        #redraw contour from startpoint to endpoint
+                        for i in range(len(contours[m])):
+                            checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                            startpoint = [p1[0], p1[1]]
+                            result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
+                            if (result_variable == True):
+                                contour_part = [contours[m][i:end_idx+1]]
+                                print(contour_part)
+                                cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+                                break
 
         output_path = os.path.join(output_dir, 'TriangleEquation.png')
         cv2.imwrite(output_path, res)
@@ -477,9 +599,9 @@ def findAngle(x1, y1, x2, y2):
 
 
 def opticalFlowCalcwithNormalization(sources, goodFeatures, filter, ksize):
-    thresh_diff = 20.0
-    termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03)
-    winSize = (21, 21)
+    thresh_diff = 20.0#20
+    termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03)#20,0.03
+    winSize = (21, 21)#50,50
     length = [[] for _ in range(4)]
 
     for i in range(len(sources)):
@@ -710,7 +832,7 @@ def frames2video(images):
 
 
 if __name__ == '__main__':
-    videofile = "abnormalc_29.avi"
+    videofile = "normalc_29.avi"
     rawVideo = "./DatasetsPSAX/"+ videofile
     print("\nReceived image File name : " + videofile)
     frames = video2frames(rawVideo)
@@ -722,12 +844,12 @@ if __name__ == '__main__':
     flow_choice = int(flow_choice)
 
     if flow_choice == 1:
-        res = gaussian_blur(rawImages[0], (5,5))
+        res = gaussian_blur(rawImages[0], (3,3))
         res = high_boost_filter(rawImages[0], res, 2.5)
         res = morph(res)
         res = adaptiveThresholding(res, 3, 1, 3, 2) #(blockSize=3, C=1, kernel=3, iterations=2)
     elif flow_choice == 2:
-        res = median_filter(rawImages[0], 21)
+        res = median_filter(rawImages[0], 9)
         res = high_boost_filter(rawImages[0], res, 2.5)
         res = morph(res)
         res = thresholding(res, 10, 255)
@@ -743,9 +865,10 @@ if __name__ == '__main__':
 
     res = coLinear(res)
     res = triangleEquation(res)
+    # res = triangleEquation2(res, 10)
+
     cv2.imshow('Triangle', res)
     cv2.waitKey(0)
-
 
     X1, Y1 = findCenterPoint(res)
     # cv2.circle(res, (X1, Y1), 5, (255, 0, 0), -1)
