@@ -656,27 +656,24 @@ class Preprocessing(Resource):
 
 
     def ExtractionMethod(self):
-        pf, nf, pm, nm = [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)]
+        pf, nf= [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)]
         for j in range(self.jumlah * 2):
-            num1, num2, num3, num4 = 0, 0, 0, 0
+            num1, num2 = 0, 0
             for i in range(9):
                 if self.direction[j][i] == 1:
                     num1 += 1
-                    num3 += self.lengthDif[i][j]
                 else:
                     num2 += 1
-                    num4 += self.lengthDif[i][j]
+
             pf[j] = num1 / 9
             nf[j] = num2 / 9
-            pm[j] = num3
-            nm[j] = num4
 
         # MENYIMPAN FEATURE EXTRACTION METHOD I
-        with open("M1F1_PSAX.csv", "a") as myfile:
+        with open("M1F2_PSAX.csv", "a") as myfile:
             for j in range((self.jumlah * 2) - 1):
-                myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
+                myfile.write(f"{str(pf[j])},{str(nf[j])},")
                 if j == (self.jumlah * 2) - 2:
-                    myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])},{str(pm[j + 1])},{str(nm[j + 1])}\n")
+                    myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])}\n")
 
     def sort_by_second(self, elem):
         return elem[1]
@@ -752,7 +749,7 @@ class Preprocessing(Resource):
                 cv2.imwrite(output_path, images[0])
 
     def classification(self):
-        df = pd.read_csv('M1F1_PSAX.csv')
+        df = pd.read_csv('M1F2_PSAX.csv')
         X = df.drop('CLASS', axis=1)
         X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
         temp = X.shape[0]
@@ -763,10 +760,10 @@ class Preprocessing(Resource):
         print(X[temp-1:temp])
         result = prediction.predict(X[temp-1:temp])
 
-        with open("M1F1_PSAX.csv", "r") as data:
+        with open("M1F2_PSAX.csv", "r") as data:
             lines = data.readlines()
             lines = lines[:-1]
-        with open("M1F1_PSAX.csv", "w") as data:
+        with open("M1F2_PSAX.csv", "w") as data:
             for line in lines:
                 data.write(line)
 
