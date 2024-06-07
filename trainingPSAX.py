@@ -849,7 +849,7 @@ if __name__ == '__main__':
         res = morph(res)
         res = adaptiveThresholding(res, 3, 1, 3, 2) #(blockSize=3, C=1, kernel=3, iterations=2)
     elif flow_choice == 2:
-        res = median_filter(rawImages[0], 9)
+        res = median_filter(rawImages[0], 21)
         res = high_boost_filter(rawImages[0], res, 2.5)
         res = morph(res)
         res = thresholding(res, 10, 255)

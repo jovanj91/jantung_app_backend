@@ -832,7 +832,6 @@ def classification():
     loaded_model = joblib.load(filename)
     model = pickle.dumps(loaded_model)
     prediction = pickle.loads(model)
-    print(X[temp-1:temp])
     result = prediction.predict(X[temp-1:temp])
 
     with open("M1F2_PSAX.csv", "r") as data:
@@ -842,6 +841,7 @@ def classification():
         for line in lines:
             data.write(line)
 
+    print('Hasil Klasifikasi model:')
     if result == 0:
         print("Tidak Normal")
         return 'Tidak Normal'
@@ -859,16 +859,16 @@ def classification96():
     loaded_model = joblib.load(filename)
     model = pickle.dumps(loaded_model)
     prediction = pickle.loads(model)
-    print(X[temp-1:temp])
     result = prediction.predict(X[temp-1:temp])
 
     with open("M1F1_PSAX.csv", "r") as data:
         lines = data.readlines()
         lines = lines[:-1]
-    with open("M1F2_PSAX.csv", "w") as data:
+    with open("M1F1_PSAX.csv", "w") as data:
         for line in lines:
             data.write(line)
 
+    print('Hasil Klasifikasi model96:')
     if result == 0:
         print("Tidak Normal")
         return 'Tidak Normal'
@@ -890,10 +890,8 @@ def frames2video(images):
     out.release()
 
 
-
-
 if __name__ == '__main__':
-    videofile = "normalc_30.avi"
+    videofile = "normalo_7.avi"
     rawVideo = "./DataTesting/"+ videofile
     print("\nReceived image File name : " + videofile)
     frames = video2frames(rawVideo)
