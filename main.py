@@ -1,14 +1,21 @@
 from flask import Flask , request, make_response, jsonify, send_file
 from flask_restful import Resource, Api
 from flask_cors import CORS
+
+
 from flask_security import Security, current_user, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required, auth_token_required
 from flask_security.utils import verify_password, hash_password, login_user
-from google.cloud import storage
+from config import DevelopmentConfig
+# from google.cloud import storage
 
 from functools import wraps
 from database import db_session, init_db
 from models import User, Role, RolesUsers, PatientData, HeartCheck
-import jwt, os, datetime, werkzeug, copy
+import jwt, os, datetime, werkzeug, copy, io
+import joblib
+from sklearn import preprocessing
+import pickle
+import pandas as pd
 import numpy as np
 import cv2
 import math
@@ -16,23 +23,19 @@ import math
 app = Flask(__name__)
 api = Api(app)
 
-app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", 'pf9Wkove4IKEAXvy-cQkeDPhv9Cb3Ag-wyJILbq_dFw')
-app.config['SECURITY_PASSWORD_SALT'] = os.environ.get("SECURITY_PASSWORD_SALT", '146585145368132386173505678016728509634')
-app.config['SECURITY_LOGIN_URL'] = '/login'
-app.config["SECURITY_EMAIL_VALIDATOR_ARGS"] = {"check_deliverability": False}
-app.config["WTF_CSRF_ENABLED"] = False
+app.config.from_object(DevelopmentConfig)
+
 app.teardown_appcontext(lambda exc: db_session.close())
 
-bucket_name = "jantungappbackend.appspot.com"
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
-storage_client = storage.Client()
 
 
 class HelloWorld(Resource):
     @auth_token_required
     def get(self):
         return f"<p>Hello, World! {current_user.username}</p>"
+
 
 class RegisterUser(Resource):
     def post(self):
@@ -55,15 +58,14 @@ class RegisterUser(Resource):
 
 class UploadVideo(Resource):
     # @token_requried
-    def upload_video():
-        if(request.method == "POST"):
-            videofile = request.files['video']
-            filename = werkzeug.utils.secure_filename(videofile.filename)
-            print("\nReceived image File name : " + videofile.filename)
-            videofile.save("./uploadedvideo/" + filename)
-            return jsonify({
-                "message" : "file uploaded successfully"
-            })
+    def post(self):
+        videofile = request.files['video']
+        filename = werkzeug.utils.secure_filename(videofile.filename)
+        print("\nReceived image File name : " + videofile.filename)
+        videofile.save("./uploadedvideo/" + filename)
+        return jsonify({
+            "message" : "file uploaded successfully"
+        })
 
 class InputPatientData(Resource):
     @auth_token_required
@@ -73,14 +75,13 @@ class InputPatientData(Resource):
         genderInput = request.json['gender']
         dobInput = request.json['dob']
         uname = db_session.query(User).filter_by(username=current_user.username).first()
-
-        bucket = storage_client.bucket(bucket_name)
-        user_directory = f'{current_user.username}_data/'
-        # blobs = bucket.list_blobs(prefix=user_directory + '/')
-        # if blobs:
-        patient_directory = f'{nameInput}_data'
-        blob = bucket.blob(user_directory + patient_directory + '/')
-        blob.upload_from_string('')
+        # bucket = storage_client.bucket(bucket_name)
+        # user_directory = f'{current_user.username}_data/'
+        # # blobs = bucket.list_blobs(prefix=user_directory + '/')
+        # # if blobs:
+        # patient_directory = f'{nameInput}_data'
+        # blob = bucket.blob(user_directory + patient_directory + '/')
+        # blob.upload_from_string('')
 
         dob_date = datetime.datetime.strptime(str(dobInput), "%Y-%m-%d")
         current_date = datetime.datetime.now()
@@ -110,11 +111,12 @@ class GetPatientsData(Resource):
             else :
                 lastCheck = "Not Checked Yet"
             patientList.append({
-                'patient_id' : patient.id,
-                'patient_name' : patient.patient_name,
-                'gender' : patient.gender,
-                'dob' : patient.dob,
-                'check_result' : lastCheck
+                'patientId' : patient.id,
+                'patientName' : patient.patient_name,
+                'patientAge' : patient.age,
+                'patientGender' : patient.gender,
+                'patientDob' : patient.dob,
+                'lastCheck' : lastCheck
             })
         return make_response(jsonify({
             'data' : patientList
@@ -126,14 +128,13 @@ class GetPatientCheckHistory(Resource):
     @roles_required('user')
     def get(self):
         patient_id = request.args.get('patient_id')
-        histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
+        histories =  db_session.query(HeartCheck, PatientData).join(PatientData, HeartCheck.patient_id == PatientData.id).filter(HeartCheck.patient_id == patient_id)
         historyList = []
         if histories:
-            for history in histories:
+            for heart_check, patient_data in histories:
                 historyList.append({
-                    'age' : history.age,
-                    'checkResult' : history.checkResult,
-                    'checkedAt' : history.checked_at,
+                    'checkResult' : heart_check.checkResult,
+                    'checkedAt' : heart_check.checked_at,
                 })
         else:
             historyList.append("No History Data")
@@ -144,12 +145,10 @@ class GetPatientCheckHistory(Resource):
 
 #Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
 class Preprocessing(Resource):
-    @auth_token_required
-    @roles_required('user')
     def video2frames(self, video):
         rawImages = {}
-        # output_dir = '1.frames'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '1.frames'
+        os.makedirs(output_dir, exist_ok=True)
         cap = cv2.VideoCapture(video)
         target_frames = self.jumlahFrame
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -164,26 +163,26 @@ class Preprocessing(Resource):
                 break
             if frame_count % frame_skip == 0:
                 rawImages[frame_index] = frame
-                # output_image_path = os.path.join(output_dir, f'frame_{frame_index:04d}.png')
-                # cv2.imwrite(output_image_path, frame)
+                output_image_path = os.path.join(output_dir, f'frame_{frame_index:04d}.png')
+                cv2.imwrite(output_image_path, frame)
                 frame_index += 1
             frame_count += 1
         cap.release()
         return rawImages
 
     def median_filter(self, image):
-        # output_dir = '2.medianfiltered'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '2.medianfiltered'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        kernelsize = 21 #5 edge more complete
+        kernelsize = 27 #5 edge more complete
         res = cv2.medianBlur(image, kernelsize)
-        # output_path = os.path.join(output_dir, 'median.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'median.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def high_boost_filter(self, image, lpf, kons):
-        # output_dir = '3.highboost'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '3.highboost'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
@@ -195,58 +194,58 @@ class Preprocessing(Resource):
                     val = min(max(val, 0), 255)
                     res[i, j, k] = val
         res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-        # output_path = os.path.join(output_dir, 'highboost.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'highboost.png')
+        cv2.imwrite(output_path, res)
         return res
 
 
     def morph(self, image):
-        # output_dir = '4.morphology'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '4.morphology'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         # ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (12, 12), (3, 3))
         ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3), (1, 1))
         res = cv2.morphologyEx(image, cv2.MORPH_OPEN, ellipse)
         res = cv2.morphologyEx(res, cv2.MORPH_CLOSE, ellipse)
-        # output_path = os.path.join(output_dir, 'morphology.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'morphology.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def thresholding(self, image):
-        # output_dir = '5.thresholding'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '5.thresholding'
+        os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
         _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
-        # output_path = os.path.join(output_dir, 'threshold.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'threshold.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def canny(self, image):
-        # output_dir = '6.canny'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '6.canny'
+        os.makedirs(output_dir, exist_ok=True)
         res = image.copy()
         res = cv2.Canny(image, 0, 255, 3)
-        # output_path = os.path.join(output_dir, 'canny.png')
-        # cv2.imwrite(output_path, res)
+        output_path = os.path.join(output_dir, 'canny.png')
+        cv2.imwrite(output_path, res)
         return res
 
     def region_filter(self, image):
-        # output_dir = '7.region'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '7.region'
+        os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
-        # output_path = os.path.join(output_dir, 'region.png')
+        output_path = os.path.join(output_dir, 'region.png')
         for i in range(len(contours)):
             if len(contours[i]) > self.R:
                 # cv2.drawContours(res, contours, i, (255, 0, 0), 1)
                 cv2.drawContours(res, contours, i, (255, 0, 0), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
-                # cv2.imwrite(output_path, res)
+                cv2.imwrite(output_path, res)
         return res
 
 
     def coLinear(self, image):
-        # output_dir = '8.colinear'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '8.colinear'
+        os.makedirs(output_dir, exist_ok=True)
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res = np.zeros_like(image)
         data = [0] * 100
@@ -284,13 +283,18 @@ class Preprocessing(Resource):
                 # cv2.imwrite(output_path, res)
 
         contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
         roi_contours = max(contours, key=cv2.contourArea)
         res = np.zeros_like(image)
-        cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), thickness=cv2.FILLED)
+        cv2.drawContours(res, [roi_contours], -1, (255, 255, 255), 1, lineType=8, hierarchy=hierarchy, maxLevel=0, offset=(0, 0))
+        output_path = os.path.join(output_dir, 'colinear.png')
+        cv2.imwrite(output_path, res)
         return res
 
 
     def triangleEquation(self, source):
+        output_dir = '12.Triangle Equation'
+        os.makedirs(output_dir, exist_ok=True)
         contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         data1 = [[] for _ in range(200)]
         x1 = [[0] * 100 for _ in range(100)]
@@ -321,15 +325,19 @@ class Preprocessing(Resource):
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+            output_path = os.path.join(output_dir, 'TriangleEquation.png')
+            cv2.imwrite(output_path, res)
             return res
 
         if jum2 == 1:
             print("bentuk=2")
             j = 0
+            res = np.zeros_like(source)
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     k = 0
                     for i in range (len(contours[m]) - 7):
+                        print(f'i : {i}')
                         p1 = contours[m][i][0]
                         p2 = contours[m][i + 1][0]
                         p3 = contours[m][i + 2][0]
@@ -367,8 +375,8 @@ class Preprocessing(Resource):
                             k += 1
                             self.CCX[j] = p4[0]
                             self.CCY[j] = p4[1]
-                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=3)
-                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=3)
+                            cv2.line(source, (int(self.CCX[j] - 1), int(self.CCY[j])), (int(self.CCX[j] + 1), int(self.CCY[j])), (255, 255, 255), thickness=1)
+                            cv2.line(source, (int(self.CCX[j]), int(self.CCY[j] - 1)), (int(self.CCX[j]), int(self.CCY[j] + 1)), (255, 255, 255), thickness=1)
 
                     center[0] = self.X1
                     center[1] = self.Y1
@@ -381,7 +389,7 @@ class Preprocessing(Resource):
                         a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
                         b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
                         c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        alpha = math.acos(((b1 * b1) + (c1 * c1) - (a1 * a1))/ (2 * b1 * c1)) * (180/math.pi)
 
                         if (alpha < min):
                             min = alpha
@@ -395,7 +403,7 @@ class Preprocessing(Resource):
                         a1 = np.sqrt(pow((p1[0] - p[0]), 2.0) + pow((p1[1] - p[1]), 2.0))
                         b1 = np.sqrt(pow((center[0] - p[0]), 2.0) + pow((center[1] - p[1]), 2.0))
                         c1 = np.sqrt(pow((center[0] - p1[0]), 2.0) + pow((center[1] - p1[1]), 2.0))
-                        alpha = math.acos((b1 * b1 + c1 * c1 - a1 * a1)/ (2 * b1 * c1)) * 180/math.pi
+                        alpha = math.acos(((b1 * b1) + (c1 * c1) - (a1 * a1))/ (2 * b1 * c1)) * (180/math.pi)
                         if (alpha < min):
                             min = alpha
                             jum1 = i
@@ -406,37 +414,40 @@ class Preprocessing(Resource):
                     y1[0][0] = p1[1]
                     x2[0][0] = p2[0]
                     y2[0][0] = p2[1]
-                    cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
+                    # cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
 
                 j += 1
 
-            contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            res = np.zeros_like(source)
+            # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for m in range(len(contours)):
-                print(len(contours))
                 if len(contours[m]) > self.R:
-                    cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+                    # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
+                    end_idx = 0
 
-            cv2.line(res, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 255, 255), thickness=3)
+                    # find endpoint index
+                    print(len(contours[m]))
+                    for i in range(len(contours[m])):
+                        checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                        endpoint = [p2[0], p2[1]]
+                        result_variable = np.allclose(np.array(checkpoint), np.array(endpoint), atol =1) #atol nilai toleransi mendekati
+                        if (result_variable == True):
+                            end_idx = i
+                            break
 
+                    #redraw contour from startpoint to endpoint
+                    for i in range(len(contours[m])):
+                        checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
+                        startpoint = [p1[0], p1[1]]
+                        endpoint = [p1[0], p1[1]]
+                        result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
+                        if (result_variable == True):
 
-            contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            j = 0
-            res = np.zeros_like(res)
-            for m in range(len(contours)):
-                print(len(contours))
-                if len(contours[m]) > self.R:
-                    pt = (self.X1, self.Y1)
-                    out = cv2.pointPolygonTest(contours[m], pt, False)
-                    print(out)
-                    if out > 0:
-                        break
+                            contour_part = [contours[m][i:end_idx+1]]
+                            cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
+                            break
 
-                j+=1
-            for m in range(len(contours)):
-                cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
-
-            contours, hierarchy = cv2.findContours(res, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            output_path = os.path.join(output_dir, 'TriangleEquation.png')
+            cv2.imwrite(output_path, res)
             return res
         if jum2 == 2:
             print("bentuk=3")
@@ -489,19 +500,21 @@ class Preprocessing(Resource):
             cv2.drawContours(garis, contours, i, color)
             rect_points = cv2.boxPoints(minRect[i])
 
-        coordinate1 = []
+        # kondisi1 = rect_points[3][0] - rect_points[0][0]
+        # kondisi2 = rect_points[0][1] - rect_points[3][1]
 
         kondisi1 = rect_points[2][0] - rect_points[1][0]
         kondisi2 = rect_points[1][1] - rect_points[2][1]
 
-        print("kondisi 1 :" + str(kondisi1))
-        print("kondisi 2 :" + str(kondisi2))
+
         if kondisi1 < kondisi2:
-            print('kanan')
-            self.valnorm = math.sqrt(pow((rect_points[1][0] - rect_points[2][0], 2)) + pow(rect_points[1][1] - rect_points[2][1], 2))
+            self.valnorm = math.sqrt(pow((rect_points[3][0] - rect_points[2][0], 2)) + pow(rect_points[3][1] - rect_points[2][1], 2))
         else:
-            print('kiri')
-            self.valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
+
+            # valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
+            self.valnorm = math.sqrt(pow(rect_points[3][0] - rect_points[2][0], 2) + pow(rect_points[3][1] - rect_points[2][1], 2))
+
+        coordinate1 = []  # Create an empty list for storing coordinates
 
         for i in range(len(contours)):
             for j in range(len(contours[i]) // 2): #kontur yang terhubung memiliki len 2 sehingga perlu dibagi 2  terlebih dahlu
@@ -528,182 +541,6 @@ class Preprocessing(Resource):
 
         return goodFeatures
 
-    def GetGoodFeaturesIntersection(self, res):
-        coordinate1 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-        coordinate2 = [[(0, 0) for _ in range(10)] for _ in range(500)]
-        temp1, temp2, temp3 = 0, 0, 0
-        rect_points = np.zeros((4, 2), dtype=np.float32)
-        color = (np.random.randint(256), np.random.randint(256), np.random.randint(256))
-        garis = np.zeros(res.shape, dtype=res.dtype)
-        hasil = np.zeros(res.shape, dtype=res.dtype)
-
-        contours, hierarchy = cv2.findContours(res, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        minRect = [cv2.minAreaRect(contour) for contour in contours]
-
-        for i in range(len(contours)):
-            cv2.drawContours(garis, contours, i, color)
-            rect_points = cv2.boxPoints(minRect[i]).astype(int)
-
-        print('rect : ' + str(rect_points))
-        cv2.polylines(garis, [rect_points], True, color, 2)
-        # cv2.imshow('garis', garis)
-        # kondisi1 = rect_points[3][0] - rect_points[0][0]
-        # kondisi2 = rect_points[0][1] - rect_points[3][1]
-
-        kondisi1 = rect_points[2][0] - rect_points[1][0]
-        kondisi2 = rect_points[1][1] - rect_points[2][1]
-
-        print("kondisi 1 :" + str(kondisi1))
-        print("kondisi 2 :" + str(kondisi2))
-
-        if kondisi1 < kondisi2:
-            valnorm = math.sqrt(pow(rect_points[1][0] - rect_points[2][0], 2) + pow(rect_points[1][1] - rect_points[2][1], 2))
-            print('kanan')
-
-            # garis kanan
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[2]), (rect_points[3]), color)
-
-            for y in range(garis.shape[0]):
-                for x in range(garis.shape[1]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            for i in np.arange(data / 2, batasan, data):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            # Garis kiri
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            temp1 = 0
-            temp2 = 0
-            cv2.line(garis, (rect_points[0]), (rect_points[1]), color)
-            for y in range(garis.shape[0]):
-                for x in range(garis.shape[1]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            for i in np.arange(data / 2, batasan, data):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            temp1 = 0
-            temp2 = self.jumlah
-
-            for i in range(self.jumlah):
-                cv2.line(garis, int(coordinate2[i][0]), int(coordinate2[i][1]), 255, 1, 1, 0)
-                hasil = cv2.bitwise_and(garis, res)
-                temp3 = 0
-                for x in range(hasil.shape[1] - 1, 0, -1):
-                    for y in range(hasil.shape[0] - 1, 0, -1):
-                        if hasil[y, x] > 0:
-                            temp1 += 1
-                            temp3 += 1
-                            coordinate2[temp1][2] = (x, y)
-                            break
-                    if temp3 > 0:
-                        break
-
-                for x in range(hasil.shape[1]):
-                    for y in range(hasil.shape[0]):
-                        if hasil[y, x] > 0:
-                            temp2 += 1
-                            coordinate2[temp2][2] = (x, y)
-                            hasil = np.zeros(res.shape, dtype=res.dtype)
-                            garis = np.zeros(res.shape, dtype=res.dtype)
-            return coordinate2
-
-        else:
-            self.valnorm = math.sqrt(pow(rect_points[2][0] - rect_points[3][0], 2) + pow(rect_points[2][1] - rect_points[3][1], 2))
-            print('kiri')
-
-            #garis kanan
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[0]), (rect_points[3]), (255, 255, 255))
-            for x in range(garis.shape[1]):
-                for y in range(garis.shape[0]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][0] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-
-            for i in range(int(data / 2), int(batasan) + 1, int(data)):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][0] = coordinate1[temp2][0]
-                if temp1 == self.jumlah:
-                    break
-
-            #garis kiri
-            temp1 = 0
-            garis = np.zeros(res.shape, dtype=res.dtype)
-            cv2.line(garis, (rect_points[1]), (rect_points[2]), (255, 255, 255))
-            for x in range(garis.shape[1]):
-                for y in range(garis.shape[0]):
-                    if garis[y, x] > 0:
-                        temp1 += 1
-                        coordinate1[temp1][1] = (x, y)
-
-            batasan = temp1
-            data = float(temp1) / (self.jumlah + 1)
-            temp1 = 0
-            temp2 = 0
-
-            for i in range(int(data / 2), int(batasan) + 1, int(data)):
-                temp1 += 1
-                temp2 = int(round(i))
-                coordinate2[temp1][1] = coordinate1[temp2][1]
-                if temp1 == self.jumlah:
-                    break
-
-            temp1 = 0
-            temp2 = self.jumlah
-            garis = np.zeros(res.shape, dtype=res.dtype)
-
-            for i in range(1, self.jumlah + 1):
-                cv2.line(garis, coordinate2[i][0], coordinate2[i][1], 255, 1, 1, 0)
-                hasil = cv2.bitwise_and(garis, res)
-                temp3 = 0
-
-                for x in range(hasil.shape[1] - 1, 0, -1):
-                    for y in range(hasil.shape[0] - 1, 0, -1):
-                        if hasil[y, x] > 0:
-                            temp1 += 1
-                            temp3 += 1
-                            coordinate2[temp1][2] = (x, y)
-                            break
-                    if temp3 > 0:
-                        break
-
-                for x in range(hasil.shape[1]):
-                    for y in range(hasil.shape[0]):
-                        if hasil[y, x] > 0:
-                            temp2 += 1
-                            coordinate2[temp2][2] = (x, y)
-                            hasil = np.zeros(res.shape, dtype=res.dtype)
-                            garis = np.zeros(res.shape, dtype=res.dtype)
-                            break
-
-            return coordinate2
 
     def findAngle(self, x1, y1, x2, y2):
         angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi
@@ -721,11 +558,10 @@ class Preprocessing(Resource):
 
         return angle
 
-
     def opticalFlowCalcwithNormalization(self, sources, goodFeatures):
         thresh_diff = 20.0
-        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-        winSize = (50, 50)
+        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 10, 0.03)
+        winSize = (21, 21)
         length = [[] for _ in range(4)]
         for i in range(len(sources)):
             sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
@@ -785,143 +621,74 @@ class Preprocessing(Resource):
                 length = (math.sqrt(((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0]) ** 2) + ((goodFeatures[i][j][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)) / self.valnorm) * 100
                 self.lengthDif[i].append(length)
 
-    def opticalFlowCalc(self, sources, goodFeatures):
+    def findCenterPoint(self, source):
+        contours, _ = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for i in range(len(contours)):
+            if len(contours[i]) > self.R:
+                x, y, w, h = cv2.boundingRect(contours[i])
+                center_x = x + w // 2
+                center_y = y + h // 2
+                break
 
-        termCrit = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 20, 0.03)
-        winSize = (50, 50)
-        for i in range(len(sources)):
-            sources[i] = cv2.cvtColor(sources[i], cv2.COLOR_BGR2GRAY)
-        for i in range(len(sources) - 1):
-            maxLevel = 3
-            sources[i] = cv2.medianBlur(sources[i], 9)
-            #cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], goodFeatures[i + 1], status, errs[i], winSize, maxLevel, termCrit)
-            goodFeatures[i + 1], status, errs = cv2.calcOpticalFlowPyrLK(sources[i], sources[i + 1], goodFeatures[i], winSize, maxLevel, termCrit,)
-            print(status[i])
-            print(errs[i])
+        return center_x, center_y
 
-
-        for i in range(len(sources)-1):
-            for j in range(self.jumlah * 2):
-                # output_path = os.path.join('10.Tracking', f'TrackingLK.png')
-                gfx_awal = int(goodFeatures[0][j][0][0])
-                gfy_awal = int(goodFeatures[0][j][0][1])
-                gfx_akhir = int(goodFeatures[len(sources) - 1][j][0][0])
-                gfy_akhir = int(goodFeatures[len(sources) - 1][j][0][1])
-                cv2.line(sources[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
-                # cv2.imwrite(output_path, sources[0])
-
-                # length = math.sqrt((gfx_awal - gfx_akhir)**2 + (gfy_awal - gfy_akhir)**2)
-                length = np.sqrt(pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) + pow(goodFeatures[i][j][0][0] - goodFeatures[i + 1][j][0][0], 2) )
-                self.lengthDif[i].append(length)
-
-
-
-    def featureExtraction(self, goodFeatures):
+    def featureExtractionPSAX(self, goodFeatures):
         for j in range(self.jumlah):
             for i in range(9):
-                # PENCARIAN SISI KIRI(GOODFEATURE) DERAJAT KEMIRINGAN
-                a1 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i + 1][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i + 1][j + self.jumlah][0][1]) ** 2)
-                b1 = math.sqrt((goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                c1 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                angle1 = math.acos((b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1)) * 180 / math.pi
-                quadrant1 = (b1 ** 2 + c1 ** 2 - a1 ** 2) / (2 * b1 * c1) * 180 / math.pi
-                if quadrant1 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j + self.jumlah][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 > slope2:
-                        print("MASUK ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(1)
-                    else:
-                        print("MASUK --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(2)
-
-                else:
-                    # KELUAR
-                    self.direction[j + self.jumlah][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j + self.jumlah][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i + 1][j + self.jumlah][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    slope2 = (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) / (
-                            goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0])
-                    if slope1 < slope2:
-                        print("KELUAR --", angle1)
-                        self.directionI[j + self.jumlah][i] = int(3)
-                    else:
-                        print("KELUAR ++", angle1)
-                        self.directionI[j + self.jumlah][i] = int(4)
-
-                # PENCARIAN SISI KANAN (GOODFEATURE) DERAJAT KEMIRINGAN
-                a2 = math.sqrt((goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0]) ** 2 +
-                            (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) ** 2)
-                b2 = math.sqrt((goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i + 1][j][0][0]) ** 2 +
-                            (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i + 1][j][0][1]) ** 2)
-                c2 = math.sqrt((goodFeatures[i][j][0][0] - goodFeatures[i][j + self.jumlah][0][0]) ** 2 +
-                            (goodFeatures[i][j][0][1] - goodFeatures[i][j + self.jumlah][0][1]) ** 2)
-                angle2 = math.acos((c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2)) * 180 / math.pi
-                quadrant2 = (c2 ** 2 + a2 ** 2 - b2 ** 2) / (2 * a2 * c2) * 180 / math.pi
-                if quadrant2 >= -1.27222e-14:
-                    # MASUK
-                    self.direction[j][i] = int(1)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 < slope2:
-                        print("MASUK --", angle2)
-                        self.directionI[j][i] = int(1)
-                    else:
-                        print("MASUK ++", angle2)
-                        self.directionI[j][i] = int(2)
-                else:
-                    # KELUAR
+                vec_AC = (self.X1 - goodFeatures[i][j][0][0], self.Y1 - goodFeatures[i][j][0][1])
+                vec_AB = (goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0], goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1])
+                dot_product = vec_AC[0] * vec_AB[0] + vec_AC[1] * vec_AB[1]
+                mag_AC = math.sqrt(vec_AC[0]**2 + vec_AC[1]**2)
+                mag_AB = math.sqrt(vec_AB[0]**2 + vec_AB[1]**2)
+                cos_angle = dot_product / (mag_AC * mag_AB)
+                angle_rad = math.acos(cos_angle)
+                angle_deg = math.degrees(angle_rad)
+                if angle_deg > 90:
+                    # print("Keluar")
                     self.direction[j][i] = int(0)
-                    slope1 = (goodFeatures[i + 1][j][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i + 1][j][0][0] - goodFeatures[i][j][0][0])
-                    slope2 = (goodFeatures[i][j + self.jumlah][0][1] - goodFeatures[i][j][0][1]) / (
-                            goodFeatures[i][j + self.jumlah][0][0] - goodFeatures[i][j][0][0])
-                    if slope1 > slope2:
-                        print("KELUAR ++", angle2)
-                        self.directionI[j][i] = int(3)
-                    else:
-                        print("KELUAR --", angle2)
-                        self.directionI[j][i] = int(4)
+                else:
+                    # print("Masuk")
+                    self.direction[j][i] = int(1)
 
 
     def ExtractionMethod(self):
-        pf, nf, pm, nm = [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)]
+        pf, nf= [[] for _ in range(self.jumlah * 2)], [[] for _ in range(self.jumlah * 2)]
         for j in range(self.jumlah * 2):
-            num1, num2, num3, num4 = 0, 0, 0, 0
+            num1, num2 = 0, 0
             for i in range(9):
                 if self.direction[j][i] == 1:
                     num1 += 1
-                    num3 += self.lengthDif[i][j]
                 else:
                     num2 += 1
-                    num4 += self.lengthDif[i][j]
+
             pf[j] = num1 / 9
             nf[j] = num2 / 9
-            pm[j] = num3
-            nm[j] = num4
 
         # MENYIMPAN FEATURE EXTRACTION METHOD I
-        # with open("M1F1_2AC.csv", "a") as myfile:
-        #     for j in range((self.jumlah * 2) - 1):
-        #         myfile.write(f"{str(pf[j])},{str(nf[j])},{str(pm[j])},{str(nm[j])},")
-        #         if j == (self.jumlah * 2) - 2:
-        #             myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])},{str(pm[j + 1])},{str(nm[j + 1])}\n")
+        with open("M1F2_PSAX.csv", "a") as myfile:
+            for j in range((self.jumlah * 2) - 1):
+                myfile.write(f"{str(pf[j])},{str(nf[j])},")
+                if j == (self.jumlah * 2) - 2:
+                    myfile.write(f"{str(pf[j + 1])},{str(nf[j + 1])}\n")
 
     def sort_by_second(self, elem):
         return elem[1]
 
+    def goodFeaturesVisualization(self, rawImages):
+        output_dir = '9.GoodFeatures'
+        os.makedirs(output_dir, exist_ok=True)
+        for framecount, image in rawImages.items():
+            if framecount == 0:
+                for i in range(self.jumlah*2):
+                    x, y = self.goodFeatures[framecount][i][0]
+                    output_path = os.path.join(output_dir, 'GF.png')
+                    cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
+                    cv2.imwrite(output_path, image)
+                break
+
     def track_visualization(self, images, goodFeatures):
-        # output_dir = '10.Tracking'
-        # os.makedirs(output_dir, exist_ok=True)
+        output_dir = '10.Tracking'
+        os.makedirs(output_dir, exist_ok=True)
         trackingresult = {}
         # Visualize Tracking
         vect1 = [[] for _ in range(10)]
@@ -960,8 +727,8 @@ class Preprocessing(Resource):
                 x, y = goodFeatures[i][j][0]
                 cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
                 trackingresult[i] = image
-            # output_path = os.path.join(output_dir, f"tracking_{i}.png")
-            # cv2.imwrite(output_path, image)
+            output_path = os.path.join(output_dir, f"tracking_{i}.png")
+            cv2.imwrite(output_path, image)
 
         return trackingresult
 
@@ -977,28 +744,53 @@ class Preprocessing(Resource):
                 cv2.line(images[0], (gfx_awal, gfy_awal), (gfx_akhir, gfy_akhir), (255, 255, 255), 1)
                 cv2.imwrite(output_path, images[0])
 
-    def frames2video(self, images, bucket_name, object_name):
+    def classification(self):
+        df = pd.read_csv('M1F2_PSAX.csv')
+        X = df.drop('CLASS', axis=1)
+        X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
+        temp = X.shape[0]
+        filename = 'modelSVM'
+        loaded_model = joblib.load(filename)
+        model = pickle.dumps(loaded_model)
+        prediction = pickle.loads(model)
+        print(X[temp-1:temp])
+        result = prediction.predict(X[temp-1:temp])
+
+        with open("M1F2_PSAX.csv", "r") as data:
+            lines = data.readlines()
+            lines = lines[:-1]
+        with open("M1F2_PSAX.csv", "w") as data:
+            for line in lines:
+                data.write(line)
+
+        if result == 0:
+            print("Tidak Normal")
+            return 'Tidak Normal'
+        else:
+            print("Normal")
+            return 'Normal'
+
+    def frames2video(self, images):
         img_array = []
         for i, img in images.items():
             height, width, layers = img.shape
             size = (width,height)
             img_array.append(img)
-        out = cv2.VideoWriter(f'https://storage.googleapis.com/{bucket_name}/{object_name}/{self.checked_at}_result',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+        out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+
         for i in range(len(img_array)):
             out.write(img_array[i])
         out.release()
 
-
-    def get_gcs_video_url(self, bucket_name, object_name):
-        return f'https://storage.googleapis.com/{bucket_name}/{object_name}'
-
     def post(self):
         patient_id = request.form['patient_id']
         videofile = request.files['video']
-        self.checked_at = datetime.datetime.now()
-        rawVideo = videofile.read()
+        self.checked_at = datetime.datetime.now().date()
+
+        filename = werkzeug.utils.secure_filename(videofile.filename)
+        # filename = "./DatasetsPSAX/" + videofile.filename
+        localstorage = './localstorage/'
         print("\nReceived image File name : " + videofile.filename)
-        print(videofile)
         #variable konstan
         self.R = 65 #radius
         self.X1, self.Y1 = 0, 0 #centerpoint
@@ -1020,18 +812,17 @@ class Preprocessing(Resource):
 
         patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
-        #sa
-        bucket = storage_client.bucket(bucket_name)
+        # bucket = storage_client.bucket(bucket_name)
         user_directory = f'{current_user.username}_data/'
-        patient_directory = f'{patientData.patient_name}_data'
-        video_store_path = user_directory + patient_directory + '/' + f'{self.checked_at}' + '/'
-        blob = bucket.blob(video_store_path + videofile.filename)
-        blob.upload_from_string(rawVideo)
+        patient_directory = f'{patientData.patient_name}_data/'
+        video_store_path = localstorage + user_directory + patient_directory + f'{self.checked_at}/'
+        os.makedirs(video_store_path, exist_ok=True)
+        # blob = bucket.blob(video_store_path + videofile.filename)
+        # blob.upload_from_string(rawVideo)
 
-        video_link = self.get_gcs_video_url(bucket_name, video_store_path + videofile.filename)
+        videofile.save(video_store_path + filename)
+        video_link = video_store_path + filename
 
-        # video_path = f'./{videofile.filename}'  # Change this to an appropriate temporary location
-        # videofile.save(video_path)
         self.frames = self.video2frames(video_link)
         print('frames'+str(len(self.frames)))
         rawImages = copy.deepcopy(self.frames)
@@ -1048,51 +839,25 @@ class Preprocessing(Resource):
         height, width = res.shape
         self.X1, self.Y1 = (width // 2), (height // 2)
 
-         # Visualisasi titik tengah
 
         res = self.coLinear(res)
-
-        # cv2.circle(res, (self.X1 ,self.Y1), 1, (255, 255, 255), 2, 8, 0)
-        # cv2.imshow(f'nyoba', res)
-        # cv2.waitKey(0)
 
         res = self.triangleEquation(res)
         # cv2.imshow("Triangle Equation", res)
         # cv2.waitKey(0)
 
-        #Tracking
-        # GFcoordinates = self.GetGoodFeaturesIntersection(res)
         GFcoordinates = self.GetGoodFeaturesPSAX(res)
 
         #Simpan nilai koordinat good feature
         for i in range(len(rawImages)) :
             self.goodFeatures[i] = self.goodFeatures[i].astype(np.float32)
             if i == 0:
-                #with intersect
-                # for j in range(1, self.jumlah * 2 + 1):
-                #     x = GFcoordinates[j][2][0]
-                #     y = GFcoordinates[j][2][1]
-
-                #Without intersect
                 for j in range(self.jumlah * 2):
                     x = GFcoordinates[j][0]
                     y = GFcoordinates[j][1]
                     self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
 
-        #Visualisasi Good Feature
-        # output_dir = '9.GoodFeatures'
-        # os.makedirs(output_dir, exist_ok=True)
-        for framecount, image in rawImages.items():
-            if framecount == 0:
-                for i in range(self.jumlah*2):
-                    x, y = self.goodFeatures[framecount][i][0]
-                    # output_path = os.path.join(output_dir, 'GF.png')
-                    cv2.circle(image, (int(x), int(y)), 1, (255, 255, 255), 2, 8, 0)
-                    # cv2.imwrite(output_path, image)
-                break
-
-        # self.opticalFlowCalc(rawImages, self.goodFeatures)
         self.opticalFlowCalcwithNormalization(rawImages, self.goodFeatures)
 
         #Visualisasi tracking
@@ -1102,19 +867,19 @@ class Preprocessing(Resource):
         self.track_visualization2(visualFrames2, self.goodFeatures)
 
         #Feature Extraction
-        self.featureExtraction(self.goodFeatures)
+        self.featureExtractionPSAX(self.goodFeatures)
 
         self.ExtractionMethod()
+        res = self.frames2video(res)
 
-        res = self.frames2video(res, bucket_name, video_store_path + f'{self.checked_at}_result')
+        # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
+        # blob.upload_from_string(res)
 
-        # os.remove(video_path)
-
-        result = 'Normal'
+        result = self.classification()
         inputData = HeartCheck(checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
-            'name' : patientData.patient_name,
+            'patientName' : patientData.patient_name,
             'checkResult' : result,
             'checkedAt' : datetime.datetime.now(),})
         db_session.add(inputData)
@@ -1127,6 +892,7 @@ class Preprocessing(Resource):
             return make_response(jsonify(error="Patient failed to checked", details=str(e)), 409)
 
 api.add_resource(RegisterUser, "/register", methods = ["POST"])
+# api.add_resource(LoginUser, "/login", methods = ["POST"])
 api.add_resource(UploadVideo, "/upload", methods=["POST"])
 api.add_resource(Preprocessing, "/detectEchocardiography", methods=["POST"])
 api.add_resource(InputPatientData, "/inputPatientData",  methods = ["POST"])
@@ -1134,10 +900,11 @@ api.add_resource(GetPatientsData, "/getPatientsData",  methods = ["GET"])
 api.add_resource(GetPatientCheckHistory, "/getPatientHistory",  methods = ["GET"])
 api.add_resource(HelloWorld, "/")
 
+
 with app.app_context():
     init_db()
 
 if __name__ == '__main__':
     # run() method of Flask class runs the application
     # on the local development server.
-    app.run(host="127.0.0.1", port=8080)
+    app.run(host="0.0.0.0", port=8080)
