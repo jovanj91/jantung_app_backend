@@ -1,20 +1,13 @@
-import itertools
-import numpy as np
 from sklearn.metrics import classification_report
-from sklearn.metrics import cohen_kappa_score
 import pandas as pd
-import numpy as np
 from sklearn import preprocessing
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import LeaveOneOut
 from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
+from sklearn.model_selection import train_test_split, KFold, LeaveOneOut
+from sklearn.metrics import make_scorer, recall_score, accuracy_score, precision_score
 from sklearn.metrics import f1_score
 from sklearn.metrics import cohen_kappa_score
 from sklearn.metrics import confusion_matrix
+# Graphic
 from sklearn.metrics import roc_curve, auc
 from sklearn.metrics import precision_recall_curve, average_precision_score
 from sklearn.model_selection import learning_curve
@@ -23,44 +16,57 @@ from sklearn import svm
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import LeaveOneOut
-import pickle
 import joblib
-
+import pickle
 df = pd.read_csv('M1F2_PSAX.csv')
 X = df.drop('CLASS', axis=1)
 y = df['CLASS']
 X = preprocessing.StandardScaler().fit(X).transform(X.astype(float))
 
-model = svm.SVC(kernel='linear', gamma='auto')
+print
+model = svm.SVC(C=1.0, cache_size=200, class_weight=None, coef0=0.0,
+                            decision_function_shape='ovr', gamma='scale', kernel='linear', degree=3,
+                            max_iter=-1, probability=False, random_state=None, shrinking=True,
+                            tol=0.001, verbose=False)
 
 print("\t####---Split Data (80%)---####\n")
-loo = LeaveOneOut()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=3)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=12)
 model.fit(X_train, y_train)
-yhat = model.predict(X_test)
-report = classification_report(y_test, yhat, labels=[0, 1], output_dict=True)
+y_pred = model.predict(X_test)
+report = classification_report(y_test, y_pred, labels=[0, 1])
 print(report)
-cohen_score = cohen_kappa_score(y_test, yhat)
-print(f"Train set Accuracy: {metrics.accuracy_score(y_train, model.predict(X_train)) * 100:.2f}%" )
-print(f"Test set Accuracy: {metrics.accuracy_score(y_test, yhat) * 100:.2f}%" )
-print(f"Kappa Score:{cohen_score * 100:.2f} \n")
-matrix = confusion_matrix(y_test, yhat)
-print(matrix,"\n")
-scores = cross_val_score(model,X_train,y_train,cv=3,scoring='accuracy')
-print (scores)
-mean_accuracy = scores.mean()
-std_accuracy = scores.std()
-print(f"Mean Accuracy: {mean_accuracy * 100:.2f}%")
+
+# accuracy = accuracy_score(y_pred, y_test)
+recall = recall_score(y_test, y_pred, average='macro')
+precision = precision_score(y_test, y_pred, average='macro')
+
+print(f"Train set Accuracy: {accuracy_score(y_train, model.predict(X_train)) * 100:.2f}%" )
+# print(f"Test set Accuracy: {accuracy * 100:.2f}%" )
+print(f"Test set Precision: {precision * 100:.2f}%" )
+print(f"Test set Recall: {recall * 100:.2f}%" )
+
+accuracy_scorer = make_scorer(accuracy_score)
+cross_accuracy_scores = cross_val_score(model,X,y,cv=3,scoring=accuracy_scorer)
+mean_accuracy = cross_accuracy_scores.mean()
+std_accuracy = cross_accuracy_scores.std()
+print(f"Test set Accuracy: {mean_accuracy * 100:.2f}%")
 print(f"Standard Deviation of Accuracy: {std_accuracy * 1:.3f}")
 
+cohen_score = cohen_kappa_score(y_test, y_pred)
+print(f"Kappa Score:{cohen_score * 100:.2f} \n")
+matrix = confusion_matrix(y_test, y_pred)
+print(matrix,"\n")
+
+# For graphic
+report = classification_report(y_test, y_pred, labels=[0, 1], output_dict=True)
 df_report = pd.DataFrame(report).transpose()
 
-fpr, tpr, thresholds = roc_curve(y_test, yhat)
+fpr, tpr, thresholds = roc_curve(y_test, y_pred)
 roc_auc = auc(fpr, tpr)
 
-precision, recall, _ = precision_recall_curve(y_test, yhat)
-average_precision = average_precision_score(y_test, yhat)
+precision, recall, _ = precision_recall_curve(y_test, y_pred)
+average_precision = average_precision_score(y_test, y_pred)
 
 train_sizes, train_scores, test_scores = learning_curve(model, X_train, y_train, cv=5, scoring='accuracy', n_jobs=-1)
 
@@ -79,7 +85,8 @@ if flow_choice == 1:
     joblib.dump(model, filename)
     loaded_model = joblib.load(filename)
     result = loaded_model.score(X, y)
-    print(result)
+    with open(f'{filename}.pkl', 'wb') as model_file:
+        pickle.dump(model, model_file)
 else:
     plt.figure(figsize=(10, 6))
     sns.heatmap(df_report.iloc[:-1, :].T, annot=True, cmap="YlGnBu")
