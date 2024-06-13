@@ -4,12 +4,13 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
 
+load_dotenv()
 url_object = URL.create(
     "mysql+pymysql",
-    username=os.environ.get("DB_USERNAME"),
-    password=os.environ.get("DB_PASSWORD"),
-    host=os.environ.get("DB_HOST"),
-    database=os.environ.get("DB_NAME"),
+    username=os.getenv("DB_USERNAME"),
+    password=os.getenv("DB_PASSWORD"),
+    host=os.getenv("DB_HOST"),
+    database=os.getenv("DB_NAME"),
 )
 engine = create_engine(url_object)
 db_session = scoped_session(sessionmaker(autocommit=False,
