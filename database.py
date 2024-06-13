@@ -1,14 +1,14 @@
+import os
 from sqlalchemy import create_engine, URL
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# engine = create_engine('mysql+pymysql://freedb_admindbjantung:h#j7@#cHBN7Gaf@@sql.freedb.tech:3306/freedb_db_cekjantung')
 url_object = URL.create(
     "mysql+pymysql",
-    username="freedb_admindbjantung",
-    password="x8mqkJkV%5GFFGj",  # plain (unescaped) text
-    host="sql.freedb.tech",
-    database="freedb_jantungappbackend",
+    username=os.environ.get("DB_USERNAME"),
+    password=os.environ.get("DB_PASSWORD"),
+    host=os.environ.get("DB_HOST"),
+    database=os.environ.get("DB_NAME"),
 )
 engine = create_engine(url_object)
 db_session = scoped_session(sessionmaker(autocommit=False,
