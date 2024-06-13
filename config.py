@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 class Config(object):
     SECRET_KEY = os.environ.get("SECRET_KEY")
     SECURITY_PASSWORD_SALT =  os.environ.get("SECURITY_PASSWORD_SALT")
