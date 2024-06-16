@@ -5,7 +5,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
 
 load_dotenv()
-os.getenv("DB_HOST")
 url_object = URL.create(
     "mysql+pymysql",
     username=os.getenv("DB_USERNAME"),
