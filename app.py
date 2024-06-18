@@ -170,13 +170,21 @@ class Preprocessing(Resource):
         cap.release()
         return rawImages
 
-    def median_filter(self, image):
+    def median_filter(self, image, kernelsize):
         output_dir = '2.medianfiltered'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        kernelsize = 27 #5 edge more complete
         res = cv2.medianBlur(image, kernelsize)
         output_path = os.path.join(output_dir, 'median.png')
+        cv2.imwrite(output_path, res)
+        return res
+
+    def gaussian_blur(self, image, kernelsize):
+        output_dir = '2.gausianblur'
+        os.makedirs(output_dir, exist_ok=True)
+        res = np.copy(image)
+        res  = cv2.GaussianBlur(image, kernelsize, 0)
+        output_path = os.path.join(output_dir, 'gaussian.png')
         cv2.imwrite(output_path, res)
         return res
 
@@ -211,12 +219,26 @@ class Preprocessing(Resource):
         cv2.imwrite(output_path, res)
         return res
 
-    def thresholding(self, image):
+    def thresholding(self, image, thr_b, thr_a):
         output_dir = '5.thresholding'
         os.makedirs(output_dir, exist_ok=True)
         res = np.copy(image)
-        _, res = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY) #original at 90
+        _, res = cv2.threshold(image, thr_b, thr_a, cv2.THRESH_BINARY) #original at 90
         output_path = os.path.join(output_dir, 'threshold.png')
+        cv2.imwrite(output_path, res)
+        return res
+
+    def adaptiveThresholding(self, image, blockSize, C, k, i):
+        output_dir = '5.adaptiveThresholding'
+        os.makedirs(output_dir, exist_ok=True)
+        res = np.copy(image)
+        res = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=blockSize, C=C)
+        output_path = os.path.join(output_dir, 'adaptivethreshold.png')
+        kernel = np.ones((k,k), np.uint8)
+        erosion = cv2.erode(res, kernel, iterations=i)
+        dilation = cv2.dilate(erosion, kernel, iterations=i)
+        res = np.copy(image)
+        res = dilation
         cv2.imwrite(output_path, res)
         return res
 
@@ -308,8 +330,13 @@ class Preprocessing(Resource):
         noCon = []
         idk = 0
         for i in range(len(contours)):
+
             if len(contours[i]) > self.R:
-                pt = (self.X1, self.Y1)
+                x, y, w, h = cv2.boundingRect(contours[i])
+                center_x = x + w // 2
+                center_y = y + h // 2
+                pt = (center_x, center_y)
+                # pt = (X1, Y1)
                 #check titik tengah berada di dalam kontur ROI atau tidak
                 out = cv2.pointPolygonTest(contours[i], pt, False)
                 print(out)
@@ -319,6 +346,7 @@ class Preprocessing(Resource):
                     noCon.append(i)
                     jum2 += 1
             idk += 1
+
         if jum1 > 0:
             print("bentuk=1")
             res = np.zeros_like(source)
@@ -333,11 +361,14 @@ class Preprocessing(Resource):
             print("bentuk=2")
             j = 0
             res = np.zeros_like(source)
+            # startpoint = contours[0][0][0]
+            # endpoint = contours[0][int(len(contours[0])/2)][0]
+            # cv2.circle(res, startpoint, 5, (255, 0, 0), -1)
+            # cv2.circle(res, endpoint, 5, (255, 0, 0), -1)
             for m in range(len(contours)):
                 if len(contours[m]) > self.R:
                     k = 0
                     for i in range (len(contours[m]) - 7):
-                        print(f'i : {i}')
                         p1 = contours[m][i][0]
                         p2 = contours[m][i + 1][0]
                         p3 = contours[m][i + 2][0]
@@ -348,7 +379,7 @@ class Preprocessing(Resource):
                         d = int(np.sqrt(pow((p1[0] - p7[0]), 2.0) + pow((p1[1] - p7[1]), 2.0))) + \
                             int(np.sqrt(pow((p2[0] - p6[0]), 2.0) + pow((p2[1] - p6[1]), 2.0))) + \
                             int(np.sqrt(pow((p3[0] - p5[0]), 2.0) + pow((p3[1] - p5[1]), 2.0)))
-                        # print(f'd{i} =' + str(d))
+
                         if d <= 15:
                             data1[k] = i + 3
                             k += 1
@@ -414,18 +445,25 @@ class Preprocessing(Resource):
                     y1[0][0] = p1[1]
                     x2[0][0] = p2[0]
                     y2[0][0] = p2[1]
+
+                    cv2.circle(source, (int(p1[0]), int(p1[1])), 1, (255, 255, 255), 2, 8, 0)
+                    cv2.circle(source, (int(p2[0]), int(p2[1])), 1, (255, 255, 255), 2, 8, 0)
                     # cv2.line(source, (int(x1[0][0]), int(y1[0][0])), (int(x2[0][0]), int(y2[0][0])), (255, 0, 0), thickness=4)
 
                 j += 1
 
             # contours, hierarchy = cv2.findContours(source, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # res = np.zeros_like(source)
+
+
             for m in range(len(contours)):
+
+                # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
                 if len(contours[m]) > self.R:
-                    # cv2.drawContours(res, contours, m, (255, 0, 0), 1, lineType=8,)
                     end_idx = 0
 
                     # find endpoint index
-                    print(len(contours[m]))
+                    # print(len(contours[m]))
                     for i in range(len(contours[m])):
                         checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                         endpoint = [p2[0], p2[1]]
@@ -438,10 +476,8 @@ class Preprocessing(Resource):
                     for i in range(len(contours[m])):
                         checkpoint = [contours[m][i][0][0], contours[m][i][0][1]]
                         startpoint = [p1[0], p1[1]]
-                        endpoint = [p1[0], p1[1]]
                         result_variable = np.allclose(np.array(checkpoint), np.array(startpoint), atol =1)
                         if (result_variable == True):
-
                             contour_part = [contours[m][i:end_idx+1]]
                             cv2.drawContours(res, contour_part, -1,(255, 0, 0), 1, lineType=8,)
                             break
@@ -784,6 +820,7 @@ class Preprocessing(Resource):
 
     def post(self):
         patient_id = request.form['patient_id']
+        process_id = request.form['process_id']
         videofile = request.files['video']
         self.checked_at = datetime.datetime.now().date()
 
@@ -828,10 +865,19 @@ class Preprocessing(Resource):
         rawImages = copy.deepcopy(self.frames)
         print('rawImages:' + str(len(rawImages)))
         #Preprocessing
-        res = self.median_filter(rawImages[0])
-        res = self.high_boost_filter(rawImages[0], res, 2.5)
-        res = self.morph(res)
-        res = self.thresholding(res)
+        flow_choice = int(process_id)
+        if flow_choice == 1:
+            res = self.gaussian_blur(rawImages[0], (5,5))
+            res = self.high_boost_filter(rawImages[0], res, 2.5)
+            res = self.morph(res)
+            res = self.adaptiveThresholding(res, 3, 1, 3, 2) #(blockSize=3, C=1, kernel=3, iterations=2)
+        else :
+            res = self.median_filter(rawImages[0], 21)
+            res = self.high_boost_filter(rawImages[0], res, 2.5)
+            res = self.morph(res)
+            res = self.thresholding(res, 10, 255)
+
+
         #Segmentation
         res = self.canny(res)
         res = self.region_filter(res)
@@ -857,6 +903,8 @@ class Preprocessing(Resource):
                     y = GFcoordinates[j][1]
                     self.goodFeatures[i] = np.append(self.goodFeatures[i], np.array([x, y], dtype=np.float32))
                 self.goodFeatures[i] = self.goodFeatures[i].reshape((self.jumlah * 2, 1, 2))
+
+        self.X1, self.Y1 = self.findCenterPoint(res)
 
         self.opticalFlowCalcwithNormalization(rawImages, self.goodFeatures)
 
