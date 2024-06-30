@@ -6,7 +6,8 @@ from flask_cors import CORS
 from flask_security import Security, current_user, SQLAlchemySessionUserDatastore, permissions_accepted, roles_required, auth_token_required
 from flask_security.utils import verify_password, hash_password, login_user
 from config import DevelopmentConfig
-# from google.cloud import storage
+import boto3
+import uuid
 
 from functools import wraps
 from database import db_session, init_db
@@ -19,7 +20,9 @@ import pandas as pd
 import numpy as np
 import cv2
 import math
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
 api = Api(app)
 
@@ -30,6 +33,13 @@ app.teardown_appcontext(lambda exc: db_session.close())
 user_datastore = SQLAlchemySessionUserDatastore(db_session, User, Role)
 security = Security(app, user_datastore)
 
+
+s3 = boto3.client('s3',
+                  aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                  aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                  region_name=os.getenv("AWS_REGION"))
+
+s3_bucket = os.getenv("AWS_BUCKET_NAME")
 
 class HelloWorld(Resource):
     @auth_token_required
@@ -128,19 +138,23 @@ class GetPatientCheckHistory(Resource):
     @roles_required('user')
     def get(self):
         patient_id = request.args.get('patient_id')
-        histories =  db_session.query(HeartCheck, PatientData).join(PatientData, HeartCheck.patient_id == PatientData.id).filter(HeartCheck.patient_id == patient_id)
+        # histories =  db_session.query(HeartCheck, PatientData).join(PatientData, HeartCheck.patient_id == PatientData.id).filter(HeartCheck.patient_id == patient_id)
+        histories = db_session.query(HeartCheck).filter(HeartCheck.patient_id == patient_id)
         historyList = []
         if histories:
-            for heart_check, patient_data in histories:
+            for heart_check in histories:
                 historyList.append({
                     'checkResult' : heart_check.checkResult,
                     'checkedAt' : heart_check.checked_at,
+                    'videoPath' : heart_check.video_path
                 })
         else:
             historyList.append("No History Data")
         return make_response(jsonify({
             'data' : historyList
         }), 201)
+
+
 
 
 #Preprocessing, Segmentation, GoodFeature, Tracking and Feature Extraction
@@ -806,13 +820,13 @@ class Preprocessing(Resource):
             print("Normal")
             return 'Normal'
 
-    def frames2video(self, images):
+    def frames2video(self, images, uid):
         img_array = []
         for i, img in images.items():
             height, width, layers = img.shape
             size = (width,height)
             img_array.append(img)
-        out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 5, size)
+        out = cv2.VideoWriter(f'result_{uid}.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 5, size)
 
         for i in range(len(img_array)):
             out.write(img_array[i])
@@ -849,13 +863,11 @@ class Preprocessing(Resource):
 
         patientData = db_session.query(PatientData).filter(PatientData.id == patient_id).first()
 
-        # bucket = storage_client.bucket(bucket_name)
+        #save video temp in local for checking
         user_directory = f'{current_user.username}_data/'
         patient_directory = f'{patientData.patient_name}_data/'
         video_store_path = localstorage + user_directory + patient_directory + f'{self.checked_at}/'
         os.makedirs(video_store_path, exist_ok=True)
-        # blob = bucket.blob(video_store_path + videofile.filename)
-        # blob.upload_from_string(rawVideo)
 
         videofile.save(video_store_path + filename)
         video_link = video_store_path + filename
@@ -918,13 +930,20 @@ class Preprocessing(Resource):
         self.featureExtractionPSAX(self.goodFeatures)
 
         self.ExtractionMethod()
-        res = self.frames2video(res)
-
-        # blob = bucket.blob(user_directory + patient_directory + '/' + f'{self.checked_at}' + '/' + f'{patientData.patient_name}_result')
-        # blob.upload_from_string(res)
 
         result = self.classification()
-        inputData = HeartCheck(checkResult=result, video_path=video_link, checked_at=datetime.datetime.now(), patient=patientData)
+
+        unique_id = str(uuid.uuid1())[:8]
+        res = self.frames2video(res, unique_id)
+
+        #save result on S3 bucket
+        s3_path= user_directory + patient_directory + f'{self.checked_at}/' + f'result_{unique_id}.mp4'
+        s3.upload_file(f'result_{unique_id}.mp4', s3_bucket, s3_path)
+        video_link_s3 = f'https://{s3_bucket}.s3.amazonaws.com/{s3_path}'
+
+        os.remove(f'result_{unique_id}.mp4')
+
+        inputData = HeartCheck(checkResult=result, video_path=video_link_s3, checked_at=datetime.datetime.now(), patient=patientData)
         checkResult = []
         checkResult.append({
             'patientName' : patientData.patient_name,
